@@ -73,8 +73,12 @@ sendChat.addEventListener("click", async () => {
 });
 
 closeChat.addEventListener("click", async () => {
-    await fetch("/api/close_chat", { method: "POST" });
-    chatWidget.classList.add("hidden");
+  await fetch("/api/close_chat", { method: "POST" });
+  chatWidget.classList.add("collapsed");
+});
+
+document.querySelector(".chat-header").addEventListener("click", () => {
+  chatWidget.classList.remove("collapsed");
 });
 
 setInterval(pollUiState, 1500);

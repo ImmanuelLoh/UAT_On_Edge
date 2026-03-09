@@ -102,3 +102,19 @@ input {
 .message.assistant {
   background: #f0f0f0;
 }
+
+.chat-panel.collapsed {
+  width: 60px;
+  min-width: 60px;
+}
+
+.chat-panel.collapsed .chat-body,
+.chat-panel.collapsed .chat-input-row {
+  display: none;
+}
+
+.chat-panel.collapsed .chat-header span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 12px;
+}

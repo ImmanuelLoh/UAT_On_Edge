@@ -15,6 +15,9 @@ app = Flask(__name__)
 context_buffer = ContextBuffer()
 trigger_engine = TriggerEngine()
 
+# delay assistant from reopening when chat is manually closed
+assistant_dismissed_until = 0
+
 latest_ui_state = {
     "assistant_open": False,
     "assistant_message": "",
@@ -44,7 +47,7 @@ def sensor_loop():
         latest_ui_state["score"] = result["score"]
         latest_ui_state["reason"] = result["reason"]
 
-        if result["triggered"] and not latest_ui_state["chat_mode"]:
+        if (result["triggered"] and not latest_ui_state["chat_mode"] and time.time() > assistant_dismissed_until):
             llm_reply = request_assistance(summary, mode="proactive")
             reply_text = llm_reply.get(
                 "assistant_message",
@@ -109,8 +112,11 @@ def chat_reply():
 
 @app.route("/api/close_chat", methods=["POST"])
 def close_chat():
+    global assistant_dismissed_until
+
+    assistant_dismissed_until = time.time() + 20  # 20 second cooldown
     latest_ui_state["assistant_open"] = False
-    latest_ui_state["chat_mode"] = False
+
     return jsonify({"ok": True})
 
 
