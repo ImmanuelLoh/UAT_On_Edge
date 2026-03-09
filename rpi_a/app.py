@@ -18,9 +18,12 @@ trigger_engine = TriggerEngine()
 latest_ui_state = {
     "assistant_open": False,
     "assistant_message": "",
+    "proactive_message": "",
+    "chat_message": "",
     "nudge": False,
     "score": 0.0,
     "reason": None,
+    "chat_mode": False,
 }
 
 
@@ -43,11 +46,13 @@ def sensor_loop():
 
         if result["triggered"] and not latest_ui_state["chat_mode"]:
             llm_reply = request_assistance(summary, mode="proactive")
-            latest_ui_state["assistant_open"] = True
-            latest_ui_state["proactive_message"] = llm_reply.get(
+            reply_text = llm_reply.get(
                 "assistant_message",
                 "It looks like you may be stuck. Try checking the highlighted field."
             )
+            latest_ui_state["assistant_open"] = True
+            latest_ui_state["proactive_message"] = reply_text
+            latest_ui_state["assistant_message"] = reply_text
 
         time.sleep(2)
 
@@ -68,15 +73,13 @@ def browser_event():
 
     if result["triggered"] and not latest_ui_state["chat_mode"]:
         llm_reply = request_assistance(summary, mode="proactive")
-        latest_ui_state["assistant_open"] = True
-        latest_ui_state["proactive_message"] = llm_reply.get(
+        reply_text = llm_reply.get(
             "assistant_message",
             "It looks like you may be stuck. Try checking the highlighted field."
         )
-
-    latest_ui_state["nudge"] = result["nudged"]
-    latest_ui_state["score"] = result["score"]
-    latest_ui_state["reason"] = result["reason"]
+        latest_ui_state["assistant_open"] = True
+        latest_ui_state["proactive_message"] = reply_text
+        latest_ui_state["assistant_message"] = reply_text
 
     return jsonify({"ok": True, "trigger_result": result})
 
@@ -95,14 +98,19 @@ def chat_reply():
     latest_ui_state["chat_mode"] = True
 
     llm_reply = request_assistance(summary, mode="chat")
+    reply_text = llm_reply.get("assistant_message", "No response.")
+
     latest_ui_state["assistant_open"] = True
-    latest_ui_state["chat_message"] = llm_reply.get("assistant_message", "No response.")
+    latest_ui_state["chat_message"] = reply_text
+    latest_ui_state["assistant_message"] = reply_text
+
     return jsonify(llm_reply)
 
 
 @app.route("/api/close_chat", methods=["POST"])
 def close_chat():
     latest_ui_state["assistant_open"] = False
+    latest_ui_state["chat_mode"] = False
     return jsonify({"ok": True})
 
 
