@@ -73,12 +73,27 @@ sendChat.addEventListener("click", async () => {
 });
 
 closeChat.addEventListener("click", async () => {
-  await fetch("/api/close_chat", { method: "POST" });
-  chatWidget.classList.add("collapsed");
+    await fetch("/api/close_chat", { method: "POST" });
+    chatWidget.classList.add("hidden");
 });
 
 document.querySelector(".chat-header").addEventListener("click", () => {
-  chatWidget.classList.remove("collapsed");
+    chatWidget.classList.remove("collapsed");
+});
+
+nudge.addEventListener("click", async () => {
+    chatWidget.classList.remove("hidden");
+    chatWidget.classList.remove("collapsed");
+    nudge.classList.add("hidden");
+
+    await fetch("/api/browser_event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            type: "manual_help_open",
+            target: "nudge"
+        })
+    });
 });
 
 setInterval(pollUiState, 1500);
