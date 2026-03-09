@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Tester UI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <div class="page">
+        <h1>Tester Screen</h1>
+        <p>Simulated task page for UAT.</p>
+
+        <div class="controls">
+            <button id="submit-btn">Submit</button>
+            <button id="next-btn">Next</button>
+            <input id="field-email" placeholder="Email">
+        </div>
+
+        <div id="nudge" class="nudge hidden">Need help?</div>
+
+        <div id="chat-widget" class="chat-widget hidden">
+            <div class="chat-header">
+                <span>Assistant</span>
+                <button id="close-chat">X</button>
+            </div>
+            <div id="chat-body" class="chat-body"></div>
+            <div class="chat-input-row">
+                <input id="chat-input" placeholder="Type your question..." />
+                <button id="send-chat">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+</body>
+
+</html>
