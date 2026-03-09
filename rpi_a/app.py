@@ -15,12 +15,18 @@ app = Flask(__name__)
 context_buffer = ContextBuffer()
 trigger_engine = TriggerEngine()
 
+# delay assistant from reopening when chat is manually closed
+assistant_dismissed_until = 0
+
 latest_ui_state = {
     "assistant_open": False,
     "assistant_message": "",
+    "proactive_message": "",
+    "chat_message": "",
     "nudge": False,
     "score": 0.0,
     "reason": None,
+    "chat_mode": False,
 }
 
 
@@ -41,13 +47,15 @@ def sensor_loop():
         latest_ui_state["score"] = result["score"]
         latest_ui_state["reason"] = result["reason"]
 
-        if result["triggered"]:
-            llm_reply = request_assistance(summary)
-            latest_ui_state["assistant_open"] = True
-            latest_ui_state["assistant_message"] = llm_reply.get(
+        if (result["triggered"] and not latest_ui_state["chat_mode"] and time.time() > assistant_dismissed_until):
+            llm_reply = request_assistance(summary, mode="proactive")
+            reply_text = llm_reply.get(
                 "assistant_message",
-                "I noticed you may be having trouble. Would you like help?",
+                "It looks like you may be stuck. Try checking the highlighted field."
             )
+            latest_ui_state["assistant_open"] = True
+            latest_ui_state["proactive_message"] = reply_text
+            latest_ui_state["assistant_message"] = reply_text
 
         time.sleep(2)
 
@@ -66,17 +74,15 @@ def browser_event():
     summary = context_buffer.summarize()
     result = trigger_engine.evaluate(summary)
 
-    if result["triggered"]:
-        llm_reply = request_assistance(summary)
-        latest_ui_state["assistant_open"] = True
-        latest_ui_state["assistant_message"] = llm_reply.get(
+    if result["triggered"] and not latest_ui_state["chat_mode"]:
+        llm_reply = request_assistance(summary, mode="proactive")
+        reply_text = llm_reply.get(
             "assistant_message",
-            "I noticed you may be having trouble. Would you like help?",
+            "It looks like you may be stuck. Try checking the highlighted field."
         )
-
-    latest_ui_state["nudge"] = result["nudged"]
-    latest_ui_state["score"] = result["score"]
-    latest_ui_state["reason"] = result["reason"]
+        latest_ui_state["assistant_open"] = True
+        latest_ui_state["proactive_message"] = reply_text
+        latest_ui_state["assistant_message"] = reply_text
 
     return jsonify({"ok": True, "trigger_result": result})
 
@@ -92,15 +98,25 @@ def chat_reply():
     summary = context_buffer.summarize()
     summary["user_message"] = user_msg
 
-    llm_reply = request_assistance(summary)
+    latest_ui_state["chat_mode"] = True
+
+    llm_reply = request_assistance(summary, mode="chat")
+    reply_text = llm_reply.get("assistant_message", "No response.")
+
     latest_ui_state["assistant_open"] = True
-    latest_ui_state["assistant_message"] = llm_reply.get("assistant_message", "No response.")
+    latest_ui_state["chat_message"] = reply_text
+    latest_ui_state["assistant_message"] = reply_text
+
     return jsonify(llm_reply)
 
 
 @app.route("/api/close_chat", methods=["POST"])
 def close_chat():
+    global assistant_dismissed_until
+
+    assistant_dismissed_until = time.time() + 20  # 20 second cooldown
     latest_ui_state["assistant_open"] = False
+
     return jsonify({"ok": True})
 
 

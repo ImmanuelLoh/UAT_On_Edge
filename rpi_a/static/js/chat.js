@@ -28,7 +28,7 @@ const closeChat = document.getElementById("close-chat");
 
 function appendMessage(text, sender = "assistant") {
     const div = document.createElement("div");
-    div.className = "message";
+    div.className = `message ${sender}`;
     div.textContent = `${sender}: ${text}`;
     chatBody.appendChild(div);
     chatBody.scrollTop = chatBody.scrollHeight;
@@ -69,11 +69,34 @@ sendChat.addEventListener("click", async () => {
 
     const data = await res.json();
     appendMessage(data.assistant_message, "assistant");
+    chatBody.dataset.lastMessage = data.assistant_message;
 });
 
-closeChat.addEventListener("click", async () => {
+closeChat.addEventListener("click", async (e) => {
+    e.stopPropagation();
     await fetch("/api/close_chat", { method: "POST" });
-    chatWidget.classList.add("hidden");
+    chatWidget.classList.remove("hidden");
+    chatWidget.classList.add("collapsed");
+});
+
+document.querySelector(".chat-header").addEventListener("click", () => {
+    chatWidget.classList.remove("hidden");
+    chatWidget.classList.remove("collapsed");
+});
+
+nudge.addEventListener("click", async () => {
+    chatWidget.classList.remove("hidden");
+    chatWidget.classList.remove("collapsed");
+    nudge.classList.add("hidden");
+
+    await fetch("/api/browser_event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            type: "manual_help_open",
+            target: "nudge"
+        })
+    });
 });
 
 setInterval(pollUiState, 1500);
