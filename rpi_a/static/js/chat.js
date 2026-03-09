@@ -72,12 +72,15 @@ sendChat.addEventListener("click", async () => {
     chatBody.dataset.lastMessage = data.assistant_message;
 });
 
-closeChat.addEventListener("click", async () => {
+closeChat.addEventListener("click", async (e) => {
+    e.stopPropagation();
     await fetch("/api/close_chat", { method: "POST" });
-    chatWidget.classList.add("hidden");
+    chatWidget.classList.remove("hidden");
+    chatWidget.classList.add("collapsed");
 });
 
 document.querySelector(".chat-header").addEventListener("click", () => {
+    chatWidget.classList.remove("hidden");
     chatWidget.classList.remove("collapsed");
 });
 
