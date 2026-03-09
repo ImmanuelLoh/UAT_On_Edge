@@ -41,12 +41,12 @@ def sensor_loop():
         latest_ui_state["score"] = result["score"]
         latest_ui_state["reason"] = result["reason"]
 
-        if result["triggered"]:
-            llm_reply = request_assistance(summary)
+        if result["triggered"] and not latest_ui_state["chat_mode"]:
+            llm_reply = request_assistance(summary, mode="proactive")
             latest_ui_state["assistant_open"] = True
-            latest_ui_state["assistant_message"] = llm_reply.get(
+            latest_ui_state["proactive_message"] = llm_reply.get(
                 "assistant_message",
-                "I noticed you may be having trouble. Would you like help?",
+                "It looks like you may be stuck. Try checking the highlighted field."
             )
 
         time.sleep(2)
@@ -66,12 +66,12 @@ def browser_event():
     summary = context_buffer.summarize()
     result = trigger_engine.evaluate(summary)
 
-    if result["triggered"]:
-        llm_reply = request_assistance(summary)
+    if result["triggered"] and not latest_ui_state["chat_mode"]:
+        llm_reply = request_assistance(summary, mode="proactive")
         latest_ui_state["assistant_open"] = True
-        latest_ui_state["assistant_message"] = llm_reply.get(
+        latest_ui_state["proactive_message"] = llm_reply.get(
             "assistant_message",
-            "I noticed you may be having trouble. Would you like help?",
+            "It looks like you may be stuck. Try checking the highlighted field."
         )
 
     latest_ui_state["nudge"] = result["nudged"]
@@ -92,9 +92,11 @@ def chat_reply():
     summary = context_buffer.summarize()
     summary["user_message"] = user_msg
 
-    llm_reply = request_assistance(summary)
+    latest_ui_state["chat_mode"] = True
+
+    llm_reply = request_assistance(summary, mode="chat")
     latest_ui_state["assistant_open"] = True
-    latest_ui_state["assistant_message"] = llm_reply.get("assistant_message", "No response.")
+    latest_ui_state["chat_message"] = llm_reply.get("assistant_message", "No response.")
     return jsonify(llm_reply)
 
 
