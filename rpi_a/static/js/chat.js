@@ -28,7 +28,7 @@ const closeChat = document.getElementById("close-chat");
 
 function appendMessage(text, sender = "assistant") {
     const div = document.createElement("div");
-    div.className = "message";
+    div.className = `message ${sender}`;
     div.textContent = `${sender}: ${text}`;
     chatBody.appendChild(div);
     chatBody.scrollTop = chatBody.scrollHeight;

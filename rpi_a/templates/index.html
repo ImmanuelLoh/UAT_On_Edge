@@ -8,19 +8,23 @@
 </head>
 
 <body>
-    <div class="page">
-        <h1>Tester Screen</h1>
-        <p>Simulated task page for UAT.</p>
+    <div class="app-shell">
+        <main class="main-panel">
+            <div class="page">
+                <h1>Tester Screen</h1>
+                <p>Simulated task page for UAT.</p>
 
-        <div class="controls">
-            <button id="submit-btn">Submit</button>
-            <button id="next-btn">Next</button>
-            <input id="field-email" placeholder="Email">
-        </div>
+                <div class="controls">
+                    <button id="submit-btn">Submit</button>
+                    <button id="next-btn">Next</button>
+                    <input id="field-email" placeholder="Email">
+                </div>
 
-        <div id="nudge" class="nudge hidden">Need help?</div>
+                <div id="nudge" class="nudge hidden">Need help?</div>
+            </div>
+        </main>
 
-        <div id="chat-widget" class="chat-widget hidden">
+        <aside id="chat-widget" class="chat-panel">
             <div class="chat-header">
                 <span>Assistant</span>
                 <button id="close-chat">X</button>
@@ -30,7 +34,7 @@
                 <input id="chat-input" placeholder="Type your question..." />
                 <button id="send-chat">Send</button>
             </div>
-        </div>
+        </aside>
     </div>
 
     <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
