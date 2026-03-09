@@ -69,6 +69,7 @@ sendChat.addEventListener("click", async () => {
 
     const data = await res.json();
     appendMessage(data.assistant_message, "assistant");
+    chatBody.dataset.lastMessage = data.assistant_message;
 });
 
 closeChat.addEventListener("click", async () => {
