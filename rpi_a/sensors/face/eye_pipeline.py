@@ -3,50 +3,29 @@ import mediapipe
 from math import sqrt
 import numpy as np
 import time, psutil
-import subprocess  # Force-release any lingering handle on the device
+
+from rpi_a.sensors.face.CameraStream import CameraStream  # Force-release any lingering handle on the device
 
 # ---------------------------------------------
 # CAM SETUP
 # ---------------------------------------------
-WARMUP = 5
-MEASURE = 30
-WIDTH = 320
-HEIGHT = 240
+# WARMUP = 5
+# MEASURE = 30
+WIDTH = 640
+HEIGHT = 480
 
-subprocess.run(["fuser", "-k", "/dev/video0"], capture_output=True)
-time.sleep(1)
+stream = CameraStream(0)
 
-# Lock exposure for consistent 30 FPS regardless of lighting
-subprocess.run(
-    ["v4l2-ctl", "--device=/dev/video0", "--set-ctrl=exposure_dynamic_framerate=0"]
-)
-subprocess.run(["v4l2-ctl", "--device=/dev/video0", "--set-ctrl=auto_exposure=1"])
-subprocess.run(
-    ["v4l2-ctl", "--device=/dev/video0", "--set-ctrl=gain=120"]
-)  # Amplifies the signal (Add brightness, grains/noise)
-subprocess.run(
-    ["v4l2-ctl", "--device=/dev/video0", "--set-ctrl=brightness=160"]
-)  # Shifts pixel values up/down
-
-cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
 # Force MJPEG (important)
-if not cap.isOpened():
+if not stream.ret:
     print("ERROR: Camera not opened")
     exit()
-cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
-cap.set(cv2.CAP_PROP_FPS, 30)
 
 # Verify settings were applied
-actual_w = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-actual_h = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-actual_fps = cap.get(cv2.CAP_PROP_FPS)
+actual_w = stream.get(cv2.CAP_PROP_FRAME_WIDTH)
+actual_h = stream.get(cv2.CAP_PROP_FRAME_HEIGHT)
+actual_fps = stream.get(cv2.CAP_PROP_FPS)
 print(f"Camera configured: {actual_w}x{actual_h} @ {actual_fps} FPS")
-
-# Drain the buffer (stale frames can skew first-run latency)
-for _ in range(10):
-    cap.read()
 
 # ---------------------------------------------
 # CONFIG
@@ -172,7 +151,7 @@ def detect_blink(landmarks, img_w, img_h, blink_counter, blink_total):
 def estimate_gaze(landmarks, img_w, img_h):
     """
     Estimates gaze direction from iris center relative to eye corner midpoint.
-    Returns (left_gaze_x, left_gaze_y, right_gaze_x, right_gaze_y) ï¿½ normalised offsets.
+    Returns (left_gaze_x, left_gaze_y, right_gaze_x, right_gaze_y) � normalised offsets.
     """
 
     def iris_offset(iris_ids, eye_ids):
@@ -260,7 +239,7 @@ while True:
 
     # --- 1. Camera Capture ---
     t0 = time.perf_counter()
-    ret, frame = cap.read()
+    ret, frame = stream.read()
     if not ret:
         break
     t1 = time.perf_counter()
@@ -372,6 +351,9 @@ while True:
             t_measure_start = t_frame_end
 
         fps_list.append(fps)
+        if len(fps_list) % 100 == 0:  # print every 100 frames
+            core_usage = psutil.cpu_percent(percpu=True)
+            print(f"Frame {len(fps_list)} | Core: {proc.cpu_num()}")
         lat_total_list.append(total_ms)
         lat_capture_list.append(capture_ms)
         lat_facemesh_list.append(facemesh_ms)
@@ -388,8 +370,8 @@ while True:
     if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
-backend = cap.getBackendName()
-cap.release()
+backend = stream.getBackendName()
+stream.stop()
 cv2.destroyAllWindows()
 
 
