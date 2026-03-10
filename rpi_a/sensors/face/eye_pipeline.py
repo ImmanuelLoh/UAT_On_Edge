@@ -277,7 +277,6 @@ while True:
     t1 = time.perf_counter()
     capture_ms = (t1 - t0) * 1000
     
-    # FROM HERE
     h, w = frame.shape[:2]
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
@@ -292,7 +291,6 @@ while True:
     t1 = time.perf_counter()
     facemesh_ms = (t1 - t0) * 1000
     
-    # TO HERE
     frame = cv2.flip(frame, 1) # Mirror for more natural interaction
 
     #  Only when face detected ---

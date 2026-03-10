@@ -151,25 +151,6 @@ class GazeCalibrator:
                 self.screen_h,
             ),
         }
-        
-        # Detect CENTER zone
-        center_gaze_x = self.collected_gaze["CENTER"][0]
-        center_gaze_y = self.collected_gaze["CENTER"][1]
-        center_yaw = self.collected_pose["CENTER"][0]
-        center_pitch = self.collected_pose["CENTER"][1]
-        
-        # Tolerance = fraction of the range from center to edge
-        gaze_x_half = abs(right_x - left_x) / 2.0
-        gaze_y_half = abs(bot_y   - top_y)  / 2.0
-        
-        self.center_zone = {
-            "gaze_x_min": center_gaze_x - gaze_x_half * 0.25,
-            "gaze_x_max": center_gaze_x + gaze_x_half * 0.25,
-            "gaze_y_min": center_gaze_y - gaze_y_half * 0.25,
-            "gaze_y_max": center_gaze_y + gaze_y_half * 0.25,
-        }
-        
-        print(f"Center zone: {self.center_zone}")
         print(f"Gaze boundaries: {self.boundaries}")
         print(f"Screen: {self.screen_w}x{self.screen_h}")
         print(f"Quadrant pixel bounds: {self.quadrant_bounds}")
@@ -228,17 +209,10 @@ class GazeCalibrator:
         HEAD_WEIGHT = 0.3
         fused_x = GAZE_WEIGHT * avg_gaze_x + HEAD_WEIGHT * norm_yaw
         fused_y = GAZE_WEIGHT * avg_gaze_y + HEAD_WEIGHT * norm_pitch
-        
-        # Check if within CENTER zone first
-        center_zone = self.center_zone
-        if (center_zone["gaze_x_min"] <= fused_x <= center_zone["gaze_x_max"] and
-            center_zone["gaze_y_min"] <= fused_y <= center_zone["gaze_y_max"]):
-            quadrant = "CENTER"
-        else:
-            h = "LEFT" if fused_x < self.boundaries["x_split"] else "RIGHT"
-            v = "TOP" if fused_y < self.boundaries["y_split"] else "BOTTOM"
-            quadrant = f"{v}-{h}"        
 
+        h = "LEFT" if fused_x < self.boundaries["x_split"] else "RIGHT"
+        v = "TOP" if fused_y < self.boundaries["y_split"] else "BOTTOM"
+        quadrant = f"{v}-{h}"
 
         px = int(np.interp(fused_x, gaze_x_range, [0, self.screen_w]))
         py = int(np.interp(fused_y, gaze_y_range, [0, self.screen_h]))
