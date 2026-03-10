@@ -276,8 +276,8 @@ while True:
         break
     t1 = time.perf_counter()
     capture_ms = (t1 - t0) * 1000
-
-    frame = cv2.flip(frame, 1)
+    
+    # FROM HERE
     h, w = frame.shape[:2]
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
@@ -291,6 +291,9 @@ while True:
     results = face_mesh.process(rgb)
     t1 = time.perf_counter()
     facemesh_ms = (t1 - t0) * 1000
+    
+    # TO HERE
+    frame = cv2.flip(frame, 1) # Mirror for more natural interaction
 
     #  Only when face detected ---
     blink_ms = 0.0
@@ -318,13 +321,21 @@ while True:
         lx, ly, rx, ry = estimate_gaze(lm, w, h)
         t1 = time.perf_counter()
         gaze_ms = (t1 - t0) * 1000
+
+        # --- 5. Head Pose Estimation
+        t0 = time.perf_counter()
+        pose_ok, pitch, yaw, roll = estimate_head_pose(
+            lm, w, h, cam_matrix, dist_coeffs
+        )
+        t1 = time.perf_counter()
+        pose_ms = (t1 - t0) * 1000
         
         # Calibration or classification
         if not calibrator.done:
             avg_gx = (lx + rx) / 2.0
             avg_gy = (ly + ry) / 2.0
             triggered = cv2.waitKey(1) & 0xFF == ord(" ")
-            status = calibrator.update(avg_gx, avg_gy, triggered)
+            status = calibrator.update(avg_gx, avg_gy, triggered, yaw, pitch)
 
             # Show fullscreen calibration window
             calib_canvas = calibrator.draw_calibration_screen(screen_w, screen_h)
@@ -339,7 +350,9 @@ while True:
             # Hide calibration window once done
             cv2.destroyWindow("Calibration")
 
-            gaze_quadrant, gx, gy, px, py = calibrator.classify(lx, ly, rx, ry)
+            gaze_quadrant, gx, gy, px, py = calibrator.classify(
+                lx, ly, rx, ry, yaw, pitch
+            )
             cv2.putText(
                 frame, f"Gaze: {gaze_quadrant}", (10, 80), FONT, 0.55, (0, 255, 255), 2
             )
@@ -350,14 +363,6 @@ while True:
 
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
-
-        # --- 5. Head Pose Estimation
-        t0 = time.perf_counter()
-        pose_ok, pitch, yaw, roll = estimate_head_pose(
-            lm, w, h, cam_matrix, dist_coeffs
-        )
-        t1 = time.perf_counter()
-        pose_ms = (t1 - t0) * 1000
 
         # Overlay on frame
         status = "BLINK" if is_blinking else "OPEN"
@@ -392,74 +397,12 @@ while True:
     t_prev = t_frame_end
     elapsed = t_frame_end - t_start
 
-    # # Metrics are collected after warm up
-    # if elapsed >= WARMUP:
-    #     if t_measure_start is None:
-    #         t_measure_start = t_frame_end
-
-    #     fps_list.append(fps)
-    #     if len(fps_list) % 100 == 0:  # print every 100 frames
-    #         core_usage = psutil.cpu_percent(percpu=True)
-    #         print(f"Frame {len(fps_list)} | Core: {proc.cpu_num()}")
-    #     lat_total_list.append(total_ms)
-    #     lat_capture_list.append(capture_ms)
-    #     lat_facemesh_list.append(facemesh_ms)
-    #     lat_blink_list.append(blink_ms)
-    #     lat_gaze_list.append(gaze_ms)
-    #     lat_pose_list.append(pose_ms)
-    #     cpu_list.append(psutil.cpu_percent(interval=None))
-    #     ram_list.append(psutil.virtual_memory().percent)
-
-    #     if (t_frame_end - t_measure_start) >= MEASURE:
-    #         break
-
-    cv2.imshow("Benchmark: Combined", frame)
-    if cv2.waitKey(1) & 0xFF == ord("q"):
-        break
+    # If no face detected, still need to show frame + handle quit
+    if not results.multi_face_landmarks:
+        cv2.imshow("Benchmark: Combined", frame)
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            break
 
 backend = stream.getBackendName()
 stream.stop()
 cv2.destroyAllWindows()
-
-
-# # ---------------------------------------------
-# # BENCHMARK SUMMARY
-# # ---------------------------------------------
-# print("\n===== BENCHMARK SUMMARY =====")
-# print(f"Backend    : {backend}")
-# print(
-#     f"Resolution : {int(actual_w)}x{int(actual_h)} @ {int(actual_fps)} FPS (configured)"
-# )
-# print(f"Frames     : {len(fps_list)}")
-
-# if fps_list:
-#     print("\n--- System Performance ---")
-#     print(
-#         f"Avg FPS : {np.mean(fps_list):.2f}  |  Min: {np.min(fps_list):.2f}  |  Max: {np.max(fps_list):.2f}"
-#     )
-#     print(f"Avg CPU : {np.mean(cpu_list):.1f}%")
-#     print(f"Avg RAM : {np.mean(ram_list):.1f}%")
-
-#     print("\n--- Per-Module Latency (ms) ---")
-#     header = f"{'Module':<24} {'Avg':>7} {'P50':>7} {'P95':>7} {'Max':>7}"
-#     print(header)
-#     print("-" * len(header))
-
-#     modules = [
-#         ("Total (pipeline)", lat_total_list),
-#         ("  Camera capture", lat_capture_list),
-#         ("  FaceMesh infer", lat_facemesh_list),
-#         ("  Blink EAR", lat_blink_list),
-#         ("  Gaze estimation", lat_gaze_list),
-#         ("  Head pose PnP", lat_pose_list),
-#     ]
-#     for name, data in modules:
-#         arr = np.array(data)
-#         print(
-#             f"{name:<24} {np.mean(arr):>7.2f} {np.median(arr):>7.2f} "
-#             f"{np.percentile(arr,95):>7.2f} {np.max(arr):>7.2f}"
-#         )
-
-#     print(f"\nTotal blinks detected : {TOTAL_BLINKS}")
-# else:
-#     print("No frames captured during measurement window.")
