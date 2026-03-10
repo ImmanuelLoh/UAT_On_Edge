@@ -20,7 +20,6 @@ class GazeCalibrator:
         }
         self.order = ["CENTER", "TOP-LEFT", "TOP-RIGHT", "BOTTOM-LEFT", "BOTTOM-RIGHT"]
         self.collected_gaze = {}  # gaze samples
-        self.collected_pose = {}
         self.boundaries = None
         self.quadrant_bounds = None  # pixel boundaries for each quadrant
         self.current_idx = 0
@@ -67,9 +66,7 @@ class GazeCalibrator:
         if elapsed >= self.collect_seconds:
             samples = np.array(self.current_samples)
             self.collected_gaze[label] = np.mean(samples[:, :2], axis=0).tolist()
-            self.collected_pose[label] = np.mean(samples[:, 2:], axis=0).tolist()
             print(f"  [{label}] gaze mean = {self.collected_gaze[label]}")
-            print(f"  [{label}] pose mean = {self.collected_pose[label]}")
             self.current_idx += 1
             self.collecting = False
             if self.current_idx >= len(self.order):
@@ -111,34 +108,6 @@ class GazeCalibrator:
             "y_split": (top_y + bot_y) / 2.0,
         }
 
-        # Pose Boundaries
-        left_yaw = np.mean(
-            [self.collected_pose["TOP-LEFT"][0], self.collected_pose["BOTTOM-LEFT"][0]]
-        )
-        right_yaw = np.mean(
-            [
-                self.collected_pose["TOP-RIGHT"][0],
-                self.collected_pose["BOTTOM-RIGHT"][0],
-            ]
-        )
-        top_pitch = np.mean(
-            [self.collected_pose["TOP-LEFT"][1], self.collected_pose["TOP-RIGHT"][1]]
-        )
-        bot_pitch = np.mean(
-            [
-                self.collected_pose["BOTTOM-LEFT"][1],
-                self.collected_pose["BOTTOM-RIGHT"][1],
-            ]
-        )
-
-        self.pose_boundaries = {
-            "yaw_split": (left_yaw + right_yaw) / 2.0,
-            "pitch_split": (top_pitch + bot_pitch) / 2.0,
-            "yaw_range": [left_yaw, right_yaw],
-            "pitch_range": [top_pitch, bot_pitch],
-        }
-        print(f"Pose boundaries: {self.pose_boundaries}")
-
         # Pixel quadrant boundaries on the actual screen
         self.quadrant_bounds = {
             "TOP-LEFT": (0, 0, self.screen_w // 2, self.screen_h // 2),
@@ -155,109 +124,46 @@ class GazeCalibrator:
         print(f"Screen: {self.screen_w}x{self.screen_h}")
         print(f"Quadrant pixel bounds: {self.quadrant_bounds}")
 
-    # def classify(self, lx, ly, rx, ry):
-    #     """
-    #     Returns (quadrant_label, avg_gaze_x, avg_gaze_y, pixel_x, pixel_y).
-    #     pixel_x/y is the estimated gaze point on screen.
-    #     """
-    #     if self.boundaries is None:
-    #         return "UNCALIBRATED", 0, 0, 0, 0
-
-    #     avg_x = (lx + rx) / 2.0
-    #     avg_y = (ly + ry) / 2.0
-
-    #     h = "LEFT" if avg_x < self.boundaries["x_split"] else "RIGHT"
-    #     v = "TOP" if avg_y < self.boundaries["y_split"] else "BOTTOM"
-    #     quadrant = f"{v}-{h}"
-
-    #     # Map gaze offset to estimated screen pixel
-    #     # Linear interpolation between calibrated left/right and top/bottom gaze values
-    #     left_x = np.mean(
-    #         [self.collected_gaze["TOP-LEFT"][0], self.collected_gaze["BOTTOM-LEFT"][0]]
-    #     )
-    #     right_x = np.mean(
-    #         [
-    #             self.collected_gaze["TOP-RIGHT"][0],
-    #             self.collected_gaze["BOTTOM-RIGHT"][0],
-    #         ]
-    #     )
-    #     top_y = np.mean(
-    #         [self.collected_gaze["TOP-LEFT"][1], self.collected_gaze["TOP-RIGHT"][1]]
-    #     )
-    #     bot_y = np.mean(
-    #         [
-    #             self.collected_gaze["BOTTOM-LEFT"][1],
-    #             self.collected_gaze["BOTTOM-RIGHT"][1],
-    #         ]
-    #     )
-
-    #     px = np.interp(avg_x, [left_x, right_x], [0, self.screen_w])
-    #     py = np.interp(avg_y, [top_y, bot_y], [0, self.screen_h])
-
-    #     return quadrant, avg_x, avg_y, int(px), int(py)
-    def classify_fused(self, lx, ly, rx, ry, yaw=0.0, pitch=0.0):
+    def classify(self, lx, ly, rx, ry):
         """
-        Fused gaze + head pose classification
         Returns (quadrant_label, avg_gaze_x, avg_gaze_y, pixel_x, pixel_y).
         pixel_x/y is the estimated gaze point on screen.
         """
         if self.boundaries is None:
             return "UNCALIBRATED", 0, 0, 0, 0
 
-        avg_gaze_x = (lx + rx) / 2.0
-        avg_gaze_y = (ly + ry) / 2.0
+        avg_x = (lx + rx) / 2.0
+        avg_y = (ly + ry) / 2.0
 
-        # Normalise pose to same scale as gaze using calibbrated ranges
-        yaw_range = self.pose_boundaries["yaw_range"]
-        pitch_range = self.pose_boundaries["pitch_range"]
-
-        gaze_x_range = [
-            np.mean(
-                [
-                    self.collected_gaze["TOP-LEFT"][0],
-                    self.collected_gaze["BOTTOM-LEFT"][0],
-                ]
-            ),
-            np.mean(
-                [
-                    self.collected_gaze["TOP-RIGHT"][0],
-                    self.collected_gaze["BOTTOM-RIGHT"][0],
-                ]
-            ),
-        ]
-        gaze_y_range = [
-            np.mean(
-                [
-                    self.collected_gaze["TOP-LEFT"][1],
-                    self.collected_gaze["TOP-RIGHT"][1],
-                ]
-            ),
-            np.mean(
-                [
-                    self.collected_gaze["BOTTOM-LEFT"][1],
-                    self.collected_gaze["BOTTOM-RIGHT"][1],
-                ]
-            ),
-        ]
-
-        # Map pose to gaze scale using calibrated ranges
-        norm_yaw = np.interp(yaw, yaw_range, gaze_x_range)
-        norm_pitch = np.interp(pitch, pitch_range, gaze_y_range)
-
-        # Weighted fusion
-        GAZE_WEIGHT = 0.7
-        HEAD_WEIGHT = 0.3
-        fused_x = GAZE_WEIGHT * avg_gaze_x + HEAD_WEIGHT * norm_yaw
-        fused_y = GAZE_WEIGHT * avg_gaze_y + HEAD_WEIGHT * norm_pitch
-
-        h = "LEFT" if fused_x < self.boundaries["x_split"] else "RIGHT"
-        v = "TOP" if fused_y < self.boundaries["y_split"] else "BOTTOM"
+        h = "LEFT" if avg_x < self.boundaries["x_split"] else "RIGHT"
+        v = "TOP" if avg_y < self.boundaries["y_split"] else "BOTTOM"
         quadrant = f"{v}-{h}"
 
-        px = int(np.interp(fused_x, gaze_x_range, [0, self.screen_w]))
-        py = int(np.interp(fused_y, gaze_y_range, [0, self.screen_h]))
+        # Map gaze offset to estimated screen pixel
+        # Linear interpolation between calibrated left/right and top/bottom gaze values
+        left_x = np.mean(
+            [self.collected_gaze["TOP-LEFT"][0], self.collected_gaze["BOTTOM-LEFT"][0]]
+        )
+        right_x = np.mean(
+            [
+                self.collected_gaze["TOP-RIGHT"][0],
+                self.collected_gaze["BOTTOM-RIGHT"][0],
+            ]
+        )
+        top_y = np.mean(
+            [self.collected_gaze["TOP-LEFT"][1], self.collected_gaze["TOP-RIGHT"][1]]
+        )
+        bot_y = np.mean(
+            [
+                self.collected_gaze["BOTTOM-LEFT"][1],
+                self.collected_gaze["BOTTOM-RIGHT"][1],
+            ]
+        )
 
-        return quadrant, avg_gaze_x, avg_gaze_y, px, py
+        px = np.interp(avg_x, [left_x, right_x], [0, self.screen_w])
+        py = np.interp(avg_y, [top_y, bot_y], [0, self.screen_h])
+
+        return quadrant, avg_x, avg_y, int(px), int(py)
 
     def draw_calibration_screen(self, screen_w, screen_h):
         """
