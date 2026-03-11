@@ -56,7 +56,7 @@ def get_screen_resolution():
 
 screen_w, screen_h = get_screen_resolution()
 print(f"Detected screen: {screen_w}x{screen_h}")
-calibrator = GazeCalibrator(screen_w, screen_h, collect_seconds=2.0)
+calibrator = GazeCalibrator(screen_w, screen_h, collect_seconds=5.0)
 
 # ---------------------------------------------
 # CONFIG
