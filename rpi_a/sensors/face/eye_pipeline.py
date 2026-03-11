@@ -5,7 +5,7 @@ from math import sqrt
 import numpy as np
 
 from CameraStream import CameraStream  # Force-release any lingering handle on the device
-from GazeCalibrator import GazeCalibrator
+from rpi_a.sensors.face.GazeCalibrator_test import GazeCalibrator
 
 # Pin entire process to core 0 only
 proc = psutil.Process(os.getpid())

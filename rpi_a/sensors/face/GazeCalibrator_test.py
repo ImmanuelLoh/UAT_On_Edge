@@ -105,10 +105,14 @@ class GazeCalibrator:
                 self.collected_gaze["BOTTOM-RIGHT"][1],
             ]
         )
-
+        
+        center_x = self.collected_gaze["CENTER"][0]
+        center_y = self.collected_gaze["CENTER"][1]
+        
+        # x_split and y_split weighted by center point to better handle user bias towards center
         self.boundaries = {
-            "x_split": (left_x + right_x) / 2.0,
-            "y_split": (top_y + bot_y) / 2.0,
+            "x_split": (left_x + right_x + center_x) / 3.0,
+            "y_split": (top_y + bot_y + center_y) / 3.0,
         }
         
         # Pose boundaries
@@ -131,9 +135,12 @@ class GazeCalibrator:
             ]
         )
         
+        center_yaw = self.collected_pose["CENTER"][0]
+        center_pitch = self.collected_pose["CENTER"][1]
+        
         self.pose_boundaries = {
-            "yaw_split": (left_yaw + right_yaw) / 2.0,
-            "pitch_split": (top_pitch + bot_pitch) / 2.0,
+            "yaw_split": (left_yaw + right_yaw + center_yaw) / 3.0,
+            "pitch_split": (top_pitch + bot_pitch + center_pitch) / 3.0,
             "yaw_range": [left_yaw, right_yaw],
             "pitch_range": [top_pitch, bot_pitch],
         }
@@ -153,23 +160,18 @@ class GazeCalibrator:
             "CENTER": (self.screen_w // 4, self.screen_h // 4, self.screen_w * 3 // 4, self.screen_h * 3 // 4),
         }
         
-        # # Detect CENTER zone
-        # center_gaze_x = self.collected_gaze["CENTER"][0]
-        # center_gaze_y = self.collected_gaze["CENTER"][1]
-        # center_yaw = self.collected_pose["CENTER"][0]
-        # center_pitch = self.collected_pose["CENTER"][1]
-        
         # Tolerance = fraction of the range from center to edge
         gaze_x_half = abs(right_x - left_x) / 2.0
         gaze_y_half = abs(bot_y   - top_y)  / 2.0
         
         self.center_zone = {
-            "gaze_x_min": center_gaze_x - gaze_x_half * 0.25,
-            "gaze_x_max": center_gaze_x + gaze_x_half * 0.25,
-            "gaze_y_min": center_gaze_y - gaze_y_half * 0.25,
-            "gaze_y_max": center_gaze_y + gaze_y_half * 0.25,
+            "gaze_x_min": center_x - gaze_x_half * 0.35,
+            "gaze_x_max": center_x + gaze_x_half * 0.35,
+            "gaze_y_min": center_y - gaze_y_half * 0.35,
+            "gaze_y_max": center_y + gaze_y_half * 0.35,
         }
-        
+
+        print(f"Pose boundaries: {self.pose_boundaries}")
         print(f"Center zone: {self.center_zone}")
         print(f"Gaze boundaries: {self.boundaries}")
         print(f"Screen: {self.screen_w}x{self.screen_h}")
