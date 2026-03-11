@@ -4,8 +4,8 @@ import mediapipe
 from math import sqrt
 import numpy as np
 
-from rpi_a.sensors.face.CameraStream import CameraStream  # Force-release any lingering handle on the device
-from rpi_a.sensors.face.GazeCalibrator import GazeCalibrator
+from CameraStream import CameraStream  # Force-release any lingering handle on the device
+from GazeCalibrator import GazeCalibrator
 
 # Pin entire process to core 0 only
 proc = psutil.Process(os.getpid())
