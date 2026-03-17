@@ -29,6 +29,8 @@ latest_ui_state = {
     "chat_mode": False,
 }
 
+nudge_active = False
+
 
 # def sensor_loop():
 #     while True:
@@ -60,10 +62,10 @@ latest_ui_state = {
 #         time.sleep(2)
 
 
-
 # @app.route("/")
 # def index():
 #     return render_template("index.html")
+
 
 def reevaluate_assistant():
     global assistant_dismissed_until
@@ -71,7 +73,10 @@ def reevaluate_assistant():
     summary = context_buffer.summarize()
     result = trigger_engine.evaluate(summary)
 
-    latest_ui_state["nudge"] = result["nudged"]
+    # Turn nudge on (do not turn it off automatically)
+    if result["nudged"]:
+        latest_ui_state["nudge"] = True
+
     latest_ui_state["score"] = result["score"]
     latest_ui_state["reason"] = result["reason"]
 
@@ -83,7 +88,7 @@ def reevaluate_assistant():
         llm_reply = request_assistance(summary, mode="proactive")
         reply_text = llm_reply.get(
             "assistant_message",
-            "It looks like you may be stuck. Try checking the highlighted field."
+            "It looks like you may be stuck. Try checking the highlighted field.",
         )
         latest_ui_state["assistant_open"] = True
         latest_ui_state["proactive_message"] = reply_text
@@ -91,36 +96,49 @@ def reevaluate_assistant():
 
     return result
 
-@app.route('/')
+
+@app.route("/")
 def page1():
-    return render_template('page1.html')
+    return render_template("page1.html")
 
-@app.route('/task-color')
+
+@app.route("/task-color")
 def page2():
-    return render_template('page2.html')
+    return render_template("page2.html")
 
-@app.route('/task-selection', methods=['GET', 'POST'])
+
+@app.route("/task-selection", methods=["GET", "POST"])
 def page3():
-    if request.method == 'POST':
+    if request.method == "POST":
         # Logic to check if exactly 3 are selected
-        selected = request.form.getlist('options')
+        selected = request.form.getlist("options")
         if len(selected) == 3:
-            return redirect(url_for('page4'))
-    return render_template('page3.html')
+            return redirect(url_for("page4"))
+    return render_template("page3.html")
 
-@app.route('/complete')
+
+@app.route("/complete")
 def page4():
-    return render_template('page4.html')
+    return render_template("page4.html")
 
 
 @app.route("/api/browser_event", methods=["POST"])
 def browser_event():
     data = request.get_json(force=True) or {}
     data["ts"] = time.time()
+
+    event_type = data.get("type")
+
+    # Clear nudge here ONLY
+    if event_type == "manual_help_open":
+        latest_ui_state["assistant_open"] = True
+        latest_ui_state["nudge"] = False
+
     context_buffer.add_event(data)
 
     result = reevaluate_assistant()
     return jsonify({"ok": True, "trigger_result": result})
+
 
 @app.route("/api/mouse_event", methods=["POST"])
 def mouse_event():
@@ -131,6 +149,7 @@ def mouse_event():
 
     result = reevaluate_assistant()
     return jsonify({"ok": True, "trigger_result": result})
+
 
 # @app.route("/api/face_event", methods=["POST"])
 # def face_event():
@@ -149,6 +168,7 @@ def mouse_event():
 #     context_buffer.add_event(event)
 #     result = reevaluate_assistant()
 #     return jsonify({"ok": True, "trigger_result": result})
+
 
 @app.route("/api/ui_state")
 def ui_state():
