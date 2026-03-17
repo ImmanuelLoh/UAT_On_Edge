@@ -150,4 +150,4 @@ class UATMonitor:
         print("="*50)
 
         current_task: UATTask = self.tasks[self.active_task_index]
-        current_task.reset_count()
+        # current_task.reset_count()

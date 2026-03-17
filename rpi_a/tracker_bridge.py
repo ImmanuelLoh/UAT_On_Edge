@@ -11,24 +11,24 @@ from sensors.mouse_tracker import MouseTracker
 # Setup UAT Monitor
 uat_monitor = UATMonitor()
 
-uat_monitor.add_task(UATTask(
-    task_name="Start Session",
-    target_ids=[],
-    success_id="btn-start-task"
-))
+uat_monitor.add_task(
+    UATTask(task_name="Start Session", target_ids=[], success_id="btn-start-task")
+)
 
-uat_monitor.add_task(UATTask(
-    task_name="Click the Color",
-    target_ids=[],
-    success_id="color-blue"
-))
+uat_monitor.add_task(
+    UATTask(
+        task_name="Click the Color", target_ids=["color-blue"], success_id="color-blue"
+    )
+)
 
-uat_monitor.add_task(UATTask(
-    task_name="Number Selections",
-    target_ids=["label-1", "label-3", "label-7"],
-    success_id="btn-submit-selection",
-    selection_ids=["label-1", "label-3", "label-7"]
-))
+uat_monitor.add_task(
+    UATTask(
+        task_name="Number Selections",
+        target_ids=["label-1", "label-3", "label-7"],
+        success_id="btn-submit-selection",
+        selection_ids=["label-1", "label-3", "label-7"],
+    )
+)
 
 
 # ================================
@@ -80,6 +80,7 @@ def uat_bridge_loop():
 # ================================
 # Mouse → Flask bridge
 mouse_tracker = MouseTracker(idle_threshold=5, interval=1)
+
 
 def mouse_bridge_loop():
     last_snapshot = None
