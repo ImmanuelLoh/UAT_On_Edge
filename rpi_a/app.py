@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect, url_for
 import threading
 import time
 
@@ -60,9 +60,30 @@ def sensor_loop():
         time.sleep(2)
 
 
-@app.route("/")
-def index():
-    return render_template("index.html")
+# @app.route("/")
+# def index():
+#     return render_template("index.html")
+
+@app.route('/')
+def page1():
+    return render_template('page1.html')
+
+@app.route('/task-color')
+def page2():
+    return render_template('page2.html')
+
+@app.route('/task-selection', methods=['GET', 'POST'])
+def page3():
+    if request.method == 'POST':
+        # Logic to check if exactly 3 are selected
+        selected = request.form.getlist('options')
+        if len(selected) == 3:
+            return redirect(url_for('page4'))
+    return render_template('page3.html')
+
+@app.route('/complete')
+def page4():
+    return render_template('page4.html')
 
 
 @app.route("/api/browser_event", methods=["POST"])

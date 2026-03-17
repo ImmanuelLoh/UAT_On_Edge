@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Task 1</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .main-panel {
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .task-page {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: white;
+        }
+
+        #btn-start-task {
+            padding: 15px 30px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        #nudge {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 2000;
+            margin-top: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-shell">
+        <main class="main-panel">
+            <div class="task-page">
+                <a href="/task-color">
+                    <button id="btn-start-task">Start 1st Task</button>
+                </a>
+            </div>
+
+            <div id="nudge" class="nudge hidden">Need help?</div>
+        </main>
+
+        <aside id="chat-widget" class="chat-panel hidden">
+            <div class="chat-header">
+                <span>Assistant</span>
+                <button id="close-chat">X</button>
+            </div>
+            <div id="chat-body" class="chat-body"></div>
+            <div class="chat-input-row">
+                <input id="chat-input" placeholder="Type your question..." />
+                <button id="send-chat">Send</button>
+            </div>
+        </aside>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+</body>
+
+</html>
