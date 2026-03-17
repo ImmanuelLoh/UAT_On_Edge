@@ -43,7 +43,7 @@ class TriggerEngine:
 
         if form_errors >= 2:
             score += 0.2
-            reasons.append("repeated_form_errors")  
+            reasons.append("repeated_form_errors")
 
         if stall_seconds >= 8:
             score += 0.2

@@ -1,1 +1,6 @@
 *pycache*
+
+# UV Related
+uv.lock
+pyproject.toml
+.python-version
