@@ -66,6 +66,35 @@ nudge_active = False
 # def index():
 #     return render_template("index.html")
 
+def get_page_context(summary: dict) -> dict:
+    task = summary.get("task", "unknown")
+
+    if task == "Start Session":
+        return {
+            "page_name": "Page 1 - Task 1",
+            "goal": "Begin the session by clicking the start button",
+            "hint_policy": "Give a short directional hint only"
+        }
+
+    if task == "Click the Color":
+        return {
+            "page_name": "Page 2 - Task 2",
+            "goal": "Click the blue color option (in the top right quadrant of the screen)",
+            "hint_policy": "Mention the correct color directly if the user has repeated wrong clicks"
+        }
+
+    if task == "Number Selections":
+        return {
+            "page_name": "Page 3 - Task 3",
+            "goal": "Select exactly the 3 correct options (numbers 1, 3 and 7) before submitting",
+            "hint_policy": "Remind the user to count selected items carefully"
+        }
+
+    return {
+        "page_name": task,
+        "goal": "Help the user complete the current task",
+        "hint_policy": "Keep help brief and actionable"
+    }
 
 def reevaluate_assistant():
     global assistant_dismissed_until
@@ -85,6 +114,12 @@ def reevaluate_assistant():
         and not latest_ui_state["chat_mode"]
         and time.time() > assistant_dismissed_until
     ):
+        # Inject context into LLM Payload
+        summary = context_buffer.summarize()
+        summary["page_context"] = get_page_context(summary)
+        summary["trigger_reason"] = latest_ui_state.get("reason")
+        summary["trigger_score"] = latest_ui_state.get("score")
+        
         llm_reply = request_assistance(summary, mode="proactive")
         reply_text = llm_reply.get(
             "assistant_message",
@@ -131,7 +166,12 @@ def browser_event():
     context_buffer.add_event(data)
 
     if event_type == "manual_help_open":
+        
+        # Inject context into LLM payload
         summary = context_buffer.summarize()
+        summary["page_context"] = get_page_context(summary)
+        summary["trigger_reason"] = latest_ui_state.get("reason")
+        summary["trigger_score"] = latest_ui_state.get("score")
 
         llm_reply = request_assistance(summary, mode="proactive")
         reply_text = llm_reply.get(
@@ -190,6 +230,12 @@ def chat_reply():
     user_msg = request.get_json().get("message", "")
     summary = context_buffer.summarize()
     summary["user_message"] = user_msg
+    
+    
+    # Inject context into LLM payload
+    summary["page_context"] = get_page_context(summary)
+    summary["trigger_reason"] = latest_ui_state.get("reason")
+    summary["trigger_score"] = latest_ui_state.get("score")
 
     latest_ui_state["chat_mode"] = True
 
