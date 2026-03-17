@@ -48,3 +48,33 @@ Laptop Handles:
 - prompt construction
 
 - response generation
+
+## Setting Up Python 3.11.9 on Raspberry Pi OS 13 (Trixie)
+### Prerequisites — install build dependencies:
+``` bash
+sudo apt update
+sudo apt install -y build-essential libssl-dev zlib1g-dev libncurses5-dev \
+    libffi-dev libsqlite3-dev libreadline-dev libbz2-dev liblzma-dev
+```
+
+### Download and compile Python 3.11.9:
+``` bash
+cd ~
+wget https://www.python.org/ftp/python/3.11.9/Python-3.11.9.tgz
+tar -xzf Python-3.11.9.tgz
+cd Python-3.11.9
+./configure --enable-optimizations --prefix=/usr/local/python3.11
+make -j$(nproc)
+sudo make altinstall
+```
+### Create and activate the venv:
+``` bash
+cd UAT_On_Edge
+/usr/local/python3.11/bin/python3.11 -m venv venv
+source venv/bin/activate
+```
+
+### Install dependencies:
+``` bash
+pip install -r requirements.txt
+```
