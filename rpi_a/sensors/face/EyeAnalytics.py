@@ -22,7 +22,7 @@ Usage:
 """
  
 import numpy as np
-from GazeCalibrator import GazeCalibrator
+from .GazeCalibrator import GazeCalibrator
  
 # ---------------------------------------------------------------------------
 # Iris / eye landmark indices (MediaPipe FaceMesh with refine_landmarks=True)
