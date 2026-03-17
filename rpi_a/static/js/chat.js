@@ -26,31 +26,47 @@ const sendChat = document.getElementById("send-chat");
 const chatInput = document.getElementById("chat-input");
 const closeChat = document.getElementById("close-chat");
 
+let pollInFlight = false;
+
 function appendMessage(text, sender = "assistant") {
+    const cleanText = (text || "").trim();
+    if (!cleanText) return;
+
     const div = document.createElement("div");
     div.className = `message ${sender}`;
-    div.textContent = `${sender}: ${text}`;
+    div.textContent = `${sender}: ${cleanText}`;
     chatBody.appendChild(div);
     chatBody.scrollTop = chatBody.scrollHeight;
 }
 
 async function pollUiState() {
-    const res = await fetch("/api/ui_state");
-    const data = await res.json();
+    if (pollInFlight) return;
+    pollInFlight = true;
 
-    if (data.nudge && !data.assistant_open) {
-        nudge.classList.remove("hidden");
-    } else {
-        nudge.classList.add("hidden");
-    }
+    try {
+        const res = await fetch("/api/ui_state");
+        const data = await res.json();
 
-    if (data.assistant_open) {
-        chatWidget.classList.remove("hidden");
-
-        if (!chatBody.dataset.lastMessage || chatBody.dataset.lastMessage !== data.assistant_message) {
-            appendMessage(data.assistant_message, "assistant");
-            chatBody.dataset.lastMessage = data.assistant_message;
+        if (data.nudge && !data.assistant_open) {
+            nudge.classList.remove("hidden");
+        } else {
+            nudge.classList.add("hidden");
         }
+
+        if (data.assistant_open) {
+            chatWidget.classList.remove("hidden");
+        }
+
+        const msg = (data.assistant_message || "").trim();
+
+        if (data.assistant_open && msg && chatBody.dataset.lastMessage !== msg) {
+            appendMessage(msg, "assistant");
+            chatBody.dataset.lastMessage = msg;
+        }
+    } catch (err) {
+        console.error("pollUiState failed:", err);
+    } finally {
+        pollInFlight = false;
     }
 }
 
@@ -68,8 +84,12 @@ sendChat.addEventListener("click", async () => {
     });
 
     const data = await res.json();
-    appendMessage(data.assistant_message, "assistant");
-    chatBody.dataset.lastMessage = data.assistant_message;
+    const reply = (data.assistant_message || "").trim();
+
+    if (reply) {
+        appendMessage(reply, "assistant");
+        chatBody.dataset.lastMessage = reply;
+    }
 });
 
 closeChat.addEventListener("click", async (e) => {
@@ -99,4 +119,5 @@ nudge.addEventListener("click", async () => {
     });
 });
 
+pollUiState();
 setInterval(pollUiState, 1500);
