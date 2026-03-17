@@ -5,8 +5,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 
-from uat_monitor import UATMonitor, UATTask
-
+from .uat_monitor import UATMonitor, UATTask
 class WebTracker:
     def __init__(self, uat_monitor: UATMonitor, interval: float, url="http://127.0.0.1:5000"):
         self.url = url
