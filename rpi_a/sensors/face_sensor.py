@@ -38,10 +38,10 @@ import cv2
 import mediapipe
 import numpy as np
  
-from .face.HeadPose import HeadPose
-from .face.EyeAnalytics  import EyeAnalytics
-from .face.FaceAnalytics import FaceAnalytics
-from .utils.CameraStream import CameraStream
+from face.HeadPose import HeadPose
+from face.EyeAnalytics  import EyeAnalytics
+from face.FaceAnalytics import FaceAnalytics
+from utils.CameraStream import CameraStream
 
 
 # CONFIGURABLE PARAMETERS

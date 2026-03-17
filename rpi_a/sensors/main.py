@@ -11,11 +11,10 @@ import time
 import subprocess
 import json
 import psutil
-import threading
 from collections import Counter
 import cv2
  
-from .face_sensor import FaceSensor
+from face_sensor import FaceSensor
  
 # ---------------------------------------------------------------------------
 # CONFIG
