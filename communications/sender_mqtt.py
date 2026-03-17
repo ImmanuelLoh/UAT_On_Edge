@@ -1,3 +1,6 @@
+#Command: python mqtt_sender.py <BROKER_IP> <LABEL>
+#Label: 5000 or 5002
+
 import time
 import random
 import json
