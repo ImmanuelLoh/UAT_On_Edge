@@ -1,7 +1,7 @@
 import requests
 from flask import Flask, request, jsonify
 
-app = Flask(__name__)
+app = Flask(__name__) 
 
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
