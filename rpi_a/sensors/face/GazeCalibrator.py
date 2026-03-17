@@ -249,9 +249,9 @@ class GazeCalibrator:
         """
         Returns a fullscreen calibration canvas (not the webcam frame).
         """
-        cv2.namedWindow("Calibration", cv2.WINDOW_NORMAL)
+        cv2.namedWindow("Gaze Calibration", cv2.WINDOW_NORMAL)
         cv2.setWindowProperty(
-            "Calibration", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN
+            "Gaze Calibration", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN
         )
 
         canvas = np.zeros((screen_h, screen_w, 3), dtype=np.uint8)
