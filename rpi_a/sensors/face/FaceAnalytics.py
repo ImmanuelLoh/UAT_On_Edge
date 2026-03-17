@@ -110,39 +110,39 @@ class FaceAnalytics:
     def __init__(self):
         # Calibration sample accumulators
         self._cal_pitches = []
-        self._cal_yaws    = []
-        self._cal_rolls   = []
-        self._cal_brow    = []
-        self._cal_mouth   = []
-        self._cal_eye     = []
+        self._cal_yaws = []
+        self._cal_rolls = []
+        self._cal_brow = []
+        self._cal_mouth = []
+        self._cal_eye = []
  
         # Baselines (set after finish_calibration)
         self._baseline_pitch = 0.0
-        self._baseline_yaw   = 0.0
-        self._baseline_roll  = 0.0
-        self._baseline_brow  = 0.0
+        self._baseline_yaw = 0.0
+        self._baseline_roll = 0.0
+        self._baseline_brow = 0.0
         self._baseline_mouth = 0.0
-        self._baseline_eye   = 0.0
-        self.calibrated      = False
+        self._baseline_eye = 0.0
+        self.calibrated = False
  
         # Smoothing buffers
         self._pitch_buf = []
-        self._yaw_buf   = []
-        self._roll_buf  = []
-        self._brow_buf  = []
+        self._yaw_buf = []
+        self._roll_buf = []
+        self._brow_buf = []
         self._mouth_buf = []
-        self._eye_buf   = []
+        self._eye_buf = []
  
         # Blink state
-        self._blink_count      = 0
-        self._consec_frames    = 0
-        self._eye_closed       = False
-        self._min_ear_val      = 1.0
+        self._blink_count = 0
+        self._consec_frames = 0
+        self._eye_closed = False
+        self._min_ear_val = 1.0
         self._blink_timestamps = []  # elapsed-time stamps
  
         # Accumulators
         self._frust_acc = 0.0
-        self._pose_acc  = 0.0
+        self._pose_acc = 0.0
         
     # Calibration
     def add_calibration_sample(self, landmarks, pitch, yaw, roll):
@@ -171,11 +171,11 @@ class FaceAnalytics:
             return False
  
         self._baseline_pitch = np.mean(self._cal_pitches)
-        self._baseline_yaw   = np.mean(self._cal_yaws)
-        self._baseline_roll  = np.mean(self._cal_rolls)
-        self._baseline_brow  = np.mean(self._cal_brow)
+        self._baseline_yaw = np.mean(self._cal_yaws)
+        self._baseline_roll = np.mean(self._cal_rolls)
+        self._baseline_brow = np.mean(self._cal_brow)
         self._baseline_mouth = np.mean(self._cal_mouth)
-        self._baseline_eye   = np.mean(self._cal_eye)
+        self._baseline_eye = np.mean(self._cal_eye)
         self.calibrated = True
  
         print(f"[FaceAnalytics] Calibration done.")
@@ -209,60 +209,60 @@ class FaceAnalytics:
             frustration_score   : float  0-100
         """
         # ---- Blink ----
-        left_ear  = _calculate_ear(landmarks, _LEFT_EYE_EAR,  img_w, img_h)
+        left_ear = _calculate_ear(landmarks, _LEFT_EYE_EAR,  img_w, img_h)
         right_ear = _calculate_ear(landmarks, _RIGHT_EYE_EAR, img_w, img_h)
-        avg_ear   = round((left_ear + right_ear) / 2.0, 3)
+        avg_ear = round((left_ear + right_ear) / 2.0, 3)
  
         if avg_ear < _EAR_THRESHOLD:
             self._consec_frames += 1
-            self._eye_closed     = True
-            self._min_ear_val    = min(self._min_ear_val, avg_ear)
+            self._eye_closed = True
+            self._min_ear_val = min(self._min_ear_val, avg_ear)
         else:
             if self._eye_closed and self._consec_frames >= _BLINK_CONSEC_FRAMES:
                 self._blink_count += 1
                 self._blink_timestamps.append(elapsed)
                 print(f"  BLINK #{self._blink_count} at {elapsed:.1f}s (min EAR: {self._min_ear_val:.3f})")
             self._consec_frames = 0
-            self._eye_closed    = False
-            self._min_ear_val   = 1.0
+            self._eye_closed = False
+            self._min_ear_val = 1.0
  
-        recent     = [t for t in self._blink_timestamps if elapsed - t <= 60.0]
+        recent = [t for t in self._blink_timestamps if elapsed - t <= 60.0]
         blink_rate = round(len(recent) / min(elapsed, 60.0) * 60, 1) if elapsed > 0 else 0.0
  
         # ---- Head pose (apply baseline + smooth) ----
-        direction      = "N/A"
+        direction = "N/A"
  
         if pitch is not None:
             self._pitch_buf.append(pitch - self._baseline_pitch)
-            self._yaw_buf.append(yaw     - self._baseline_yaw)
-            self._roll_buf.append(roll   - self._baseline_roll)
+            self._yaw_buf.append(yaw - self._baseline_yaw)
+            self._roll_buf.append(roll - self._baseline_roll)
             if len(self._pitch_buf) > _POSE_SMOOTH_N: self._pitch_buf.pop(0)
-            if len(self._yaw_buf)   > _POSE_SMOOTH_N: self._yaw_buf.pop(0)
-            if len(self._roll_buf)  > _POSE_SMOOTH_N: self._roll_buf.pop(0)
+            if len(self._yaw_buf) > _POSE_SMOOTH_N: self._yaw_buf.pop(0)
+            if len(self._roll_buf) > _POSE_SMOOTH_N: self._roll_buf.pop(0)
  
             smoothed_pitch = round(np.mean(self._pitch_buf), 1)
-            smoothed_yaw   = round(np.mean(self._yaw_buf),   1)
-            direction      = _get_direction(smoothed_yaw, smoothed_pitch)
+            smoothed_yaw = round(np.mean(self._yaw_buf),   1)
+            direction = _get_direction(smoothed_yaw, smoothed_pitch)
  
         # ---- Brow / emotion ----
-        emotion      = "N/A"
+        emotion = "N/A"
         frust_signal = 0.0
-        brow_delta   = None
-        mouth_delta  = None
+        brow_delta = None
+        mouth_delta = None
  
-        raw_brow  = _get_brow_furrow(landmarks)
+        raw_brow = _get_brow_furrow(landmarks)
         raw_mouth = _get_mouth_frown(landmarks)
-        raw_eye   = _get_eye_squint(landmarks)
+        raw_eye = _get_eye_squint(landmarks)
  
         if raw_brow is not None:
             self._brow_buf.append(raw_brow)
             self._mouth_buf.append(raw_mouth)
             self._eye_buf.append(raw_eye)
-            if len(self._brow_buf)  > _BROW_SMOOTH_N: self._brow_buf.pop(0)
+            if len(self._brow_buf) > _BROW_SMOOTH_N: self._brow_buf.pop(0)
             if len(self._mouth_buf) > _BROW_SMOOTH_N: self._mouth_buf.pop(0)
-            if len(self._eye_buf)   > _BROW_SMOOTH_N: self._eye_buf.pop(0)
+            if len(self._eye_buf) > _BROW_SMOOTH_N: self._eye_buf.pop(0)
  
-            brow_delta  = round(np.mean(self._brow_buf)  - self._baseline_brow,  3)
+            brow_delta  = round(np.mean(self._brow_buf) - self._baseline_brow,  3)
             mouth_delta = round(np.mean(self._mouth_buf) - self._baseline_mouth, 3)
             emotion, frust_signal = _classify_emotion(brow_delta, mouth_delta)
  
@@ -280,9 +280,9 @@ class FaceAnalytics:
             self._pose_acc = max(self._pose_acc - _POSE_DRAIN_RATE * dt, 0.0)
  
         # ---- Composite scores ----
-        optimal     = (_NORMAL_BLINK_MIN + _NORMAL_BLINK_MAX) / 2.0
+        optimal = (_NORMAL_BLINK_MIN + _NORMAL_BLINK_MAX) / 2.0
         blink_score = max(0.0, 100.0 - abs(blink_rate - optimal) * 4.0) if elapsed > 30 else 100.0
-        pose_score  = max(0.0, 100.0 - self._pose_acc)
+        pose_score = max(0.0, 100.0 - self._pose_acc)
         attention_score = round(min(max(blink_score * 0.4 + pose_score * 0.6, 0.0), 100.0), 1)
  
         if blink_rate < _NORMAL_BLINK_MIN:

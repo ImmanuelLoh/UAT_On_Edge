@@ -47,8 +47,8 @@ def _estimate_iris_offset(landmarks, img_w, img_h):
         eye_inner = np.array([landmarks[eye_ids[0]].x * img_w, landmarks[eye_ids[0]].y * img_h])
         eye_outer = np.array([landmarks[eye_ids[8]].x * img_w, landmarks[eye_ids[8]].y * img_h])
         eye_width = np.linalg.norm(eye_outer - eye_inner) + 1e-6
-        eye_mid   = (eye_inner + eye_outer) / 2
-        offset    = (iris_center - eye_mid) / eye_width
+        eye_mid = (eye_inner + eye_outer) / 2
+        offset = (iris_center - eye_mid) / eye_width
         return float(offset[0]), float(offset[1])
  
     lx, ly = _offset(_LEFT_IRIS_INDICES,  _LEFT_EYE_INDICES)
@@ -57,9 +57,9 @@ def _estimate_iris_offset(landmarks, img_w, img_h):
 
 class EyeAnalytics:
     def __init__(self, screen_w, screen_h, collect_seconds=5.0):
-        self._calibrator   = GazeCalibrator(screen_w, screen_h, collect_seconds=collect_seconds)
-        self._screen_w     = screen_w
-        self._screen_h     = screen_h
+        self._calibrator = GazeCalibrator(screen_w, screen_h, collect_seconds=collect_seconds)
+        self._screen_w = screen_w
+        self._screen_h = screen_h
     
     # Expose calibrator methods for external control (e.g. from main.py)
     @property

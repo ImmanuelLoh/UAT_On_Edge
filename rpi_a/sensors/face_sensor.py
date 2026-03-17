@@ -90,102 +90,109 @@ class FaceSensor:
         """
         Blocks until both calibrations are complete:
         - FaceAnalytics: passive N-second baseline collection
-        - EyeAnalytics:  interactive 5-point SPACE-triggered gaze calibration
+        - EyeAnalytics: interactive 5-point SPACE-triggered gaze calibration
         Both run concurrently in the same loop.
         """
-        print(f"\n[FaceCombined] Warming up camera ({_WARMUP_SECS}s)...")
+        
+        # Camera warmup (discard initial frames for consistent performance)
+        print(f"\n[FaceSensor] Warming up camera ({_WARMUP_SECS}s)...")
         warmup_start = time.time()
         while time.time() - warmup_start < _WARMUP_SECS:
             self._stream.read()
-
-        print(f"[FaceSensor] Starting calibration.")
-        print(f"  - Relax face, look at camera ({_FACE_CALIB_SECS}s passive collection)")
-        print(f"  - Then follow gaze calibration dots (press SPACE per point)\n")
-
-        face_calib_done = False
-        face_calib_start = time.time()
-
-        while not (face_calib_done and self._eye_analytics.calibration_done):
+            
+        # PHASE 1: Gaze calibration 
+        print(f"[FaceSensor] Phase 1: Gaze calibration - follow the dots, press SPACE per point\n")
+        while not self._eye_analytics.calibration_done:
             ret, frame = self._stream.read()
             if not ret:
                 continue
-
+ 
             h, w = frame.shape[:2]
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-            # Single FaceMesh inference
+ 
             results = self._face_mesh.process(rgb)
             frame = cv2.flip(frame, 1)
-
+ 
             # Init HeadPose on first frame
             if self._head_pose is None:
                 self._head_pose = HeadPose(w, h)
-
-            # space_pressed = (cv2.waitKey(1) & 0xFF) == ord(" ")
+ 
             key = cv2.waitKey(1) & 0xFF
-            space_pressed = (key == ord(" "))
-
+            space_pressed = key == ord(" ")
+ 
             if results.multi_face_landmarks:
                 lm = results.multi_face_landmarks[0].landmark
-
-                # HeadPose
                 pitch, yaw, roll, _, _ = self._head_pose.estimate(lm)
-
-                # FaceAnalytics passive calibration
-                if not face_calib_done:
-                    self._face_analytics.add_calibration_sample(lm, pitch, yaw, roll)
-                    elapsed_cal = time.time() - face_calib_start
-                    remaining   = max(0.0, _FACE_CALIB_SECS - elapsed_cal)
-
-                    if elapsed_cal >= _FACE_CALIB_SECS:
-                        ok = self._face_analytics.finish_calibration()
-                        face_calib_done = True
-                        if not ok:
-                            print("[FaceSensor] WARNING: FaceAnalytics calibration failed — retrying...")
-                            face_calib_done = False
-                            face_calib_start = time.time()
-
-                    if self._debug:
-                        cv2.rectangle(frame, (0, 0), (w, 42), (0, 140, 255), -1)
-                        cv2.putText(frame,
-                            f"Relax face, look at camera ({remaining:.1f}s)",
-                            (10, 28), _FONT, 0.6, (255, 255, 255), 2)
-                else:
-                    if self._debug:
-                        cv2.putText(frame, "Face calibration done",
-                            (10, 28), _FONT, 0.6, (0, 200, 0), 2)
-
-                # EyeAnalytics gaze calibration — dot screen always shown
-                if not self._eye_analytics.calibration_done:
-                    status = self._eye_analytics.update_calibration(
-                        lm, w, h, yaw, pitch, space_pressed
-                    )
-                    calib_canvas = self._eye_analytics.draw_calibration_screen()
-                    cv2.imshow("Gaze Calibration", calib_canvas)
-                    if self._debug:
-                        cv2.putText(frame, f"Gaze: {status}",
-                            (10, 62), _FONT, 0.5, (255, 255, 0), 1)
-                else:
-                    cv2.destroyWindow("Gaze Calibration")
-                    if self._debug:
-                        cv2.putText(frame, "Gaze calibration done",
-                            (10, 62), _FONT, 0.5, (0, 200, 0), 1)
-
-            else:
-                if self._debug:
-                    cv2.putText(frame, "No face detected",
-                        (10, 28), _FONT, 0.7, (0, 0, 255), 2)
-
-            if self._debug:
-                cv2.imshow("UAT - Calibration", frame)
-
+                status = self._eye_analytics.update_calibration(
+                    lm, w, h, yaw, pitch, space_pressed
+                )
+ 
+            # Only show dot screen during gaze calibration
+            calib_canvas = self._eye_analytics.draw_calibration_screen()
+            cv2.imshow("Gaze Calibration", calib_canvas)
+ 
             if key == ord("q"):
-                print("[FaceSensor] Quit during calibration.")
+                print("[FaceSensor] Quit during gaze calibration.")
                 self.stop()
                 raise SystemExit
+ 
+        cv2.destroyWindow("Gaze Calibration")
+        print("[FaceSensor] Gaze calibration complete.\n")
+        
+        
+        # PHASE 2: Face analytics calibration
+        # Ensure HeadPose was initialised during Phase 1
+        if self._head_pose is None:
+            ret, frame = self._stream.read()
+            h, w = frame.shape[:2]
+            self._head_pose = HeadPose(w, h)
+    
+        print(f"[FaceSensor] Phase 2: Face calibration - relax face, look at camera ({_FACE_CALIB_SECS}s)\n")
+        face_calib_done = False
+        face_calib_start = time.time()
 
-        if self._debug:
-            cv2.destroyAllWindows()
+        while not face_calib_done:
+            ret, frame = self._stream.read()
+            if not ret:
+                continue
+ 
+            h, w = frame.shape[:2]
+            rgb  = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+ 
+            results = self._face_mesh.process(rgb)
+            frame = cv2.flip(frame, 1)
+ 
+            key = cv2.waitKey(1) & 0xFF
+ 
+            if results.multi_face_landmarks:
+                lm = results.multi_face_landmarks[0].landmark
+                pitch, yaw, roll, _, _ = self._head_pose.estimate(lm)
+ 
+                self._face_analytics.add_calibration_sample(lm, pitch, yaw, roll)
+                elapsed_cal = time.time() - face_calib_start
+                remaining   = max(0.0, _FACE_CALIB_SECS - elapsed_cal)
+ 
+                if elapsed_cal >= _FACE_CALIB_SECS:
+                    ok = self._face_analytics.finish_calibration()
+                    if ok:
+                        face_calib_done = True
+                    else:
+                        print("[FaceSensor] WARNING: Face calibration failed - retrying...")
+                        face_calib_start = time.time()
+ 
+                cv2.rectangle(frame, (0, 0), (w, 42), (0, 140, 255), -1)
+                cv2.putText(frame,
+                    f"Relax face, look at camera ({remaining:.1f}s)",
+                    (10, 28), _FONT, 0.6, (255, 255, 255), 2)
+            else:
+                cv2.putText(frame, "No face detected", (10, 28), _FONT, 0.7, (0, 0, 255), 2)
+ 
+            cv2.imshow("UAT", frame)
+ 
+            if key == ord("q"):
+                print("[FaceSensor] Quit during face calibration.")
+                self.stop()
+                raise SystemExit
         self._analytics_start = time.time()
         self._last_frame_time = time.time()
         print("\n[FaceSensor] Calibration complete. Ready for analytics.\n")
@@ -210,7 +217,7 @@ class FaceSensor:
 
         # Timing
         now = time.time()
-        dt  = now - self._last_frame_time
+        dt = now - self._last_frame_time
         elapsed = now - self._analytics_start
         self._last_frame_time = now
 
@@ -236,7 +243,7 @@ class FaceSensor:
             cv2.putText(frame, f"Emotion: {face_result['emotion']}", (10, 55), _FONT, 0.6, (0, 255, 0), 2)
             cv2.putText(frame, f"Frust: {face_result['frustration_score']}", (10, 82), _FONT, 0.6, (0, 165, 255), 2)
             cv2.putText(frame, f"Attn: {face_result['attention_score']}", (10, 109), _FONT, 0.6, (255, 255, 0), 2)
-            cv2.imshow("UAT - Analytics", frame)
+            cv2.imshow("UAT", frame)
             cv2.waitKey(1)
         
         return {

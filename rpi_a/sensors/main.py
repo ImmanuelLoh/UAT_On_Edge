@@ -20,7 +20,7 @@ from face_sensor import FaceSensor
 # CONFIG
 # ---------------------------------------------------------------------------
 PUBLISH_INTERVAL = 1.0      # seconds between data publish
-DEBUG = True     # set False in production (hides webcam feed)
+DEBUG = True                # set False in production (hides webcam feed)
 
 # ---------------------------------------------------------------------------
 # SETUP
@@ -75,20 +75,20 @@ while True:
     if now - last_publish_time >= PUBLISH_INTERVAL:
         if face_result and face_result.get("face_detected"):
             payload = {
-                "timestamp":        round(now, 1),
+                "timestamp": round(now, 1),
                 # Face signals
                 "frustration_score": face_result["frustration_score"],
-                "attention_score":   face_result["attention_score"],
-                "emotion":           face_result["emotion"],
-                "direction":         face_result["direction"],
-                "gaze_quadrant":     face_result["gaze_quadrant"],
-                "blink_rate":        face_result["blink_rate"],
-                "avg_ear":           face_result["avg_ear"],
+                "attention_score": face_result["attention_score"],
+                "emotion": face_result["emotion"],
+                "direction": face_result["direction"],
+                "gaze_quadrant": face_result["gaze_quadrant"],
+                "blink_rate": face_result["blink_rate"],
+                "avg_ear": face_result["avg_ear"],
             }
         else:
             payload = {
                 "timestamp": round(now, 1),
-                "status":    "NO_FACE",
+                "status": "NO_FACE",
             }
  
         print(f"DATA: {json.dumps(payload)}")
