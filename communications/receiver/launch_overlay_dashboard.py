@@ -29,7 +29,7 @@ def main():
     stream_args = [f"{port}={label}" for port, label in streams]
 
     base_dir = Path(__file__).resolve().parent
-    overlay_script = base_dir / "receive_static_overlay.py"
+    overlay_script = base_dir / "receive_stream.py"
     dashboard_script = base_dir / "mqtt_dashboard.py"
 
     overlay_cmd = [
