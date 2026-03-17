@@ -9,15 +9,15 @@ function sendBrowserEvent(type, target = null) {
     });
 }
 
-document.addEventListener("click", (e) => {
-    const targetId = e.target.id || e.target.tagName.toLowerCase();
-    sendBrowserEvent("click", targetId);
-});
+// document.addEventListener("click", (e) => {
+//     const targetId = e.target.id || e.target.tagName.toLowerCase();
+//     sendBrowserEvent("click", targetId);
+// });
 
-document.addEventListener("focusin", (e) => {
-    const targetId = e.target.id || e.target.tagName.toLowerCase();
-    sendBrowserEvent("input_focus", targetId);
-});
+// document.addEventListener("focusin", (e) => {
+//     const targetId = e.target.id || e.target.tagName.toLowerCase();
+//     sendBrowserEvent("input_focus", targetId);
+// });
 
 const nudge = document.getElementById("nudge");
 const chatWidget = document.getElementById("chat-widget");
