@@ -128,13 +128,23 @@ def browser_event():
     data["ts"] = time.time()
 
     event_type = data.get("type")
+    context_buffer.add_event(data)
 
-    # Clear nudge here ONLY
     if event_type == "manual_help_open":
+        summary = context_buffer.summarize()
+
+        llm_reply = request_assistance(summary, mode="proactive")
+        reply_text = llm_reply.get(
+            "assistant_message",
+            "It looks like you may be stuck. Want a hint?"
+        )
+
         latest_ui_state["assistant_open"] = True
         latest_ui_state["nudge"] = False
+        latest_ui_state["proactive_message"] = reply_text
+        latest_ui_state["assistant_message"] = reply_text
 
-    context_buffer.add_event(data)
+        return jsonify({"ok": True, "assistant_message": reply_text})
 
     result = reevaluate_assistant()
     return jsonify({"ok": True, "trigger_result": result})
@@ -199,6 +209,8 @@ def close_chat():
 
     assistant_dismissed_until = time.time() + 20  # 20 second cooldown
     latest_ui_state["assistant_open"] = False
+    latest_ui_state["chat_mode"] = False
+    latest_ui_state["assistant_message"] = ""
 
     return jsonify({"ok": True})
 
