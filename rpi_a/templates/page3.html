@@ -4,13 +4,16 @@
 <head>
     <meta charset="UTF-8">
     <title>Task 3 - Targeted Selection</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        body {
+        .task-page {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             text-align: center;
             padding-top: 50px;
             background-color: #f4f7f6;
             margin: 0;
+            min-height: 100vh;
+            box-sizing: border-box;
         }
 
         #instruction-box {
@@ -18,9 +21,9 @@
             padding: 20px;
             display: inline-block;
             border-radius: 10px;
-            shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
             border: 2px solid #333;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         #target-numbers {
@@ -58,7 +61,6 @@
             display: none;
         }
 
-        /* Visual feedback for selection */
         .option-label:hover {
             border-color: #007bff;
             background-color: #f0f7ff;
@@ -95,30 +97,62 @@
             font-weight: bold;
             visibility: hidden;
         }
+
+        #nudge {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 2000;
+            margin-top: 0;
+        }
     </style>
 </head>
 
 <body>
+    <div class="app-shell">
+        <main class="main-panel">
+            <div class="task-page">
+                <div id="instruction-box">
+                    <h2 style="margin: 0;">Task: Select these 3 numbers:</h2>
+                    <div id="target-numbers">Generating...</div>
+                </div>
 
-    <div id="instruction-box">
-        <h2 style="margin: 0;">Task: Select these 3 numbers:</h2>
-        <div id="target-numbers">Generating...</div>
+                <form id="task-form" onsubmit="return validateSubmission(event)">
+                    <div id="selection-grid">
+                        {% for i in range(1, 13) %}
+                        <label class="option-label" id="label-{{ i }}">
+                            <input
+                                type="checkbox"
+                                name="options"
+                                class="task-checkbox"
+                                value="{{ i }}"
+                                onchange="toggleHighlight(this, 'label-{{ i }}')"
+                            >
+                            <span style="font-size: 1.2rem;">{{ i }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+
+                    <button type="submit" id="btn-submit-selection" disabled>Submit Selection</button>
+                    <div id="error-msg">Incorrect selection. Please follow the instructions.</div>
+                </form>
+            </div>
+
+            <div id="nudge" class="nudge hidden">Need help?</div>
+        </main>
+
+        <aside id="chat-widget" class="chat-panel hidden">
+            <div class="chat-header">
+                <span>Assistant</span>
+                <button id="close-chat">X</button>
+            </div>
+            <div id="chat-body" class="chat-body"></div>
+            <div class="chat-input-row">
+                <input id="chat-input" placeholder="Type your question..." />
+                <button id="send-chat">Send</button>
+            </div>
+        </aside>
     </div>
-
-    <form id="task-form" onsubmit="return validateSubmission(event)">
-        <div id="selection-grid">
-            {% for i in range(1, 13) %}
-            <label class="option-label" id="label-{{ i }}">
-                <input type="checkbox" name="options" class="task-checkbox" value="{{ i }}"
-                    onchange="toggleHighlight(this, 'label-{{ i }}')">
-                <span style="font-size: 1.2rem;">{{ i }}</span>
-            </label>
-            {% endfor %}
-        </div>
-
-        <button type="submit" id="btn-submit-selection" disabled>Submit Selection</button>
-        <div id="error-msg">Incorrect selection. Please follow the instructions.</div>
-    </form>
 
     <script>
         let requiredNumbers = [];
@@ -127,9 +161,8 @@
         function initPage() {
             // const allNumbers = Array.from({ length: 12 }, (_, i) => i + 1);
             // requiredNumbers = allNumbers.sort(() => 0.5 - Math.random()).slice(0, 3).sort((a, b) => a - b);
-            
-            requiredNumbers = [1, 3, 7];
 
+            requiredNumbers = [1, 3, 7];
             document.getElementById('target-numbers').innerText = requiredNumbers.join(', ');
         }
 
@@ -150,7 +183,8 @@
         // 3. Final Validation
         function validateSubmission(event) {
             event.preventDefault();
-            const selected = Array.from(document.querySelectorAll('.task-checkbox:checked')).map(cb => parseInt(cb.value));
+            const selected = Array.from(document.querySelectorAll('.task-checkbox:checked'))
+                .map(cb => parseInt(cb.value));
 
             // Check if selected matches required (sorting ensures order doesn't matter)
             const isCorrect = selected.length === 3 && selected.every(n => requiredNumbers.includes(n));
@@ -166,6 +200,8 @@
 
         window.onload = initPage;
     </script>
+
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
 </body>
 
 </html>

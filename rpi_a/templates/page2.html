@@ -4,8 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <title>Task 2 - Dynamic Color Match</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        body {
+        .main-panel {
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .task-page {
             margin: 0;
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -13,9 +19,9 @@
             height: 100vh;
             position: relative;
             font-family: sans-serif;
+            background: white;
         }
 
-        /* Interactive Boxes */
         .color-box {
             border: none;
             cursor: pointer;
@@ -53,7 +59,6 @@
             grid-area: 2 / 2;
         }
 
-        /* Central UI */
         #instruction-container {
             position: absolute;
             top: 50%;
@@ -82,23 +87,49 @@
             height: 20px;
             visibility: hidden;
         }
+
+        #nudge {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 2000;
+            margin-top: 0;
+        }
     </style>
 </head>
 
 <body>
+    <div class="app-shell">
+        <main class="main-panel">
+            <div class="task-page">
+                <div id="instruction-container">
+                    <p id="instruction-text">The task is to click the <br><span id="target-display">...</span> square.</p>
+                    <div id="feedback-text">Incorrect! Try again.</div>
+                </div>
 
-    <div id="instruction-container">
-        <p id="instruction-text">The task is to click the <br><span id="target-display">...</span> square.</p>
-        <div id="feedback-text">Incorrect! Try again.</div>
+                <div id="color-red" class="color-box" onclick="checkColor('color-red')"></div>
+                <div id="color-blue" class="color-box" onclick="checkColor('color-blue')"></div>
+                <div id="color-green" class="color-box" onclick="checkColor('color-green')"></div>
+                <div id="color-yellow" class="color-box" onclick="checkColor('color-yellow')"></div>
+            </div>
+
+            <div id="nudge" class="nudge hidden">Need help?</div>
+        </main>
+
+        <aside id="chat-widget" class="chat-panel hidden">
+            <div class="chat-header">
+                <span>Assistant</span>
+                <button id="close-chat">X</button>
+            </div>
+            <div id="chat-body" class="chat-body"></div>
+            <div class="chat-input-row">
+                <input id="chat-input" placeholder="Type your question..." />
+                <button id="send-chat">Send</button>
+            </div>
+        </aside>
     </div>
 
-    <div id="color-red" class="color-box" onclick="checkColor('color-red')"></div>
-    <div id="color-blue" class="color-box" onclick="checkColor('color-blue')"></div>
-    <div id="color-green" class="color-box" onclick="checkColor('color-green')"></div>
-    <div id="color-yellow" class="color-box" onclick="checkColor('color-yellow')"></div>
-
     <script>
-        // List of possible targets
         const colors = [
             { id: 'color-red', name: 'RED', hex: '#ff5f5f' },
             { id: 'color-blue', name: 'BLUE', hex: '#5fafff' },
@@ -117,7 +148,7 @@
             currentTargetId = target.id;
             const display = document.getElementById('target-display');
             display.innerText = target.name;
-            display.style.color = target.hex; // Visual cue (optional)
+            display.style.color = target.hex;
             display.style.textShadow = "1px 1px 2px #000";
         }
 
@@ -133,10 +164,12 @@
                 setTimeout(() => { feedback.style.visibility = 'hidden'; }, 1500);
             }
         }
-
+        
         // Initialize when page opens
         window.onload = initTask;
     </script>
+
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
 </body>
 
 </html>
