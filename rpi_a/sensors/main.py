@@ -20,7 +20,7 @@ from face_sensor import FaceSensor
 # CONFIG
 # ---------------------------------------------------------------------------
 PUBLISH_INTERVAL = 1.0      # seconds between data publish
-DEBUG            = True     # set False in production (hides webcam feed)
+DEBUG = True     # set False in production (hides webcam feed)
 
 # ---------------------------------------------------------------------------
 # SETUP

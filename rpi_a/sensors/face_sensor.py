@@ -111,17 +111,19 @@ class FaceSensor:
                 continue
 
             h, w = frame.shape[:2]
-            rgb  = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
             # Single FaceMesh inference
             results = self._face_mesh.process(rgb)
-            frame   = cv2.flip(frame, 1)
+            frame = cv2.flip(frame, 1)
 
             # Init HeadPose on first frame
             if self._head_pose is None:
                 self._head_pose = HeadPose(w, h)
 
-            space_pressed = (cv2.waitKey(1) & 0xFF) == ord(" ")
+            # space_pressed = (cv2.waitKey(1) & 0xFF) == ord(" ")
+            key = cv2.waitKey(1) & 0xFF
+            space_pressed = (key == ord(" "))
 
             if results.multi_face_landmarks:
                 lm = results.multi_face_landmarks[0].landmark
@@ -175,9 +177,9 @@ class FaceSensor:
                         (10, 28), _FONT, 0.7, (0, 0, 255), 2)
 
             if self._debug:
-                cv2.imshow("UAT — Calibration", frame)
+                cv2.imshow("UAT - Calibration", frame)
 
-            if cv2.waitKey(1) & 0xFF == ord("q"):
+            if key == ord("q"):
                 print("[FaceSensor] Quit during calibration.")
                 self.stop()
                 raise SystemExit
@@ -186,7 +188,7 @@ class FaceSensor:
             cv2.destroyAllWindows()
         self._analytics_start = time.time()
         self._last_frame_time = time.time()
-        print("\n[FaceCombined] Calibration complete. Ready for analytics.\n")
+        print("\n[FaceSensor] Calibration complete. Ready for analytics.\n")
             
     # Per-frame processing after calibration
     def update(self) -> dict | None:
@@ -200,15 +202,15 @@ class FaceSensor:
             return None
 
         h, w = frame.shape[:2]
-        rgb  = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         # Single FaceMesh inference
         results = self._face_mesh.process(rgb)
-        frame   = cv2.flip(frame, 1)
+        frame = cv2.flip(frame, 1)
 
         # Timing
-        now     = time.time()
-        dt      = now - self._last_frame_time
+        now = time.time()
+        dt  = now - self._last_frame_time
         elapsed = now - self._analytics_start
         self._last_frame_time = now
 
@@ -228,7 +230,15 @@ class FaceSensor:
 
         # FaceAnalytics
         face_result = self._face_analytics.process(lm, w, h, pitch, yaw, roll, dt, elapsed)
-
+        
+        if self._debug:
+            cv2.putText(frame, f"Gaze: {gaze_quadrant}", (10, 28), _FONT, 0.6, (0, 255, 255), 2)
+            cv2.putText(frame, f"Emotion: {face_result['emotion']}", (10, 55), _FONT, 0.6, (0, 255, 0), 2)
+            cv2.putText(frame, f"Frust: {face_result['frustration_score']}", (10, 82), _FONT, 0.6, (0, 165, 255), 2)
+            cv2.putText(frame, f"Attn: {face_result['attention_score']}", (10, 109), _FONT, 0.6, (255, 255, 0), 2)
+            cv2.imshow("UAT - Analytics", frame)
+            cv2.waitKey(1)
+        
         return {
             "face_detected": True,
             "gaze_quadrant": gaze_quadrant,
@@ -241,4 +251,4 @@ class FaceSensor:
         self._stream.stop()
         self._face_mesh.close()
         cv2.destroyAllWindows()
-        print("[FaceCombined] Stopped.")
+        print("[FaceSensor] Stopped.")
