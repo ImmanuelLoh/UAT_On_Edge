@@ -66,35 +66,83 @@ nudge_active = False
 # def index():
 #     return render_template("index.html")
 
+
 def get_page_context(summary: dict) -> dict:
     task = summary.get("task", "unknown")
 
     if task == "Start Session":
         return {
             "page_name": "Page 1 - Task 1",
-            "goal": "Begin the session by clicking the start button",
-            "hint_policy": "Give a short directional hint only"
+            "goal": "Click the Start button to begin the session.",
+            "allowed_elements": ["Start button"],
+            "forbidden_inferences": [
+                "forms",
+                "checkmarks",
+                "color choices",
+                "number tiles",
+            ],
+            "hint_policy": "Keep the hint short and mention only the Start button.",
         }
 
     if task == "Click the Color":
         return {
             "page_name": "Page 2 - Task 2",
-            "goal": "Click the blue color option (in the top right quadrant of the screen)",
-            "hint_policy": "Mention the correct color directly if the user has repeated wrong clicks"
+            "goal": "Click the blue square.",
+            "allowed_elements": [
+                "blue square",
+                "red square",
+                "green square",
+                "yellow square",
+            ],
+            "forbidden_inferences": [
+                "checkmarks",
+                "buttons",
+                "different blue shades",
+                "hidden controls",
+            ],
+            "hint_policy": "If there are repeated wrong clicks, tell the user to click the blue square.",
         }
 
     if task == "Number Selections":
         return {
             "page_name": "Page 3 - Task 3",
-            "goal": "Select exactly the 3 correct options (numbers 1, 3 and 7) before submitting",
-            "hint_policy": "Remind the user to count selected items carefully"
+            "goal": "Select exactly 3 numbers: 1, 3, and 7. Then submit the selection.",
+            "allowed_elements": ["number tiles", "Submit Selection button"],
+            "forbidden_inferences": [
+                "forms",
+                "text fields",
+                "previous step",
+                "re-entering information",
+            ],
+            "hint_policy": "If the selection seems wrong, remind the user to choose exactly 1, 3, and 7.",
         }
 
     return {
         "page_name": task,
-        "goal": "Help the user complete the current task",
-        "hint_policy": "Keep help brief and actionable"
+        "goal": "Help the user complete the current task.",
+        "allowed_elements": [],
+        "forbidden_inferences": [],
+        "hint_policy": "Keep help brief and actionable.",
     }
+
+
+def build_fallback_hint(summary: dict) -> str:
+    task = summary.get("task", "unknown")
+    wrong = summary.get("task_wrong_clicks", 0)
+
+    if task == "Click the Color":
+        if wrong >= 2:
+            return "It looks like there were a few incorrect selections. Try clicking the blue square."
+        return "Try clicking the blue square."
+
+    if task == "Number Selections":
+        return "The current selection seems incorrect. Select exactly 3 numbers: 1, 3, and 7, then submit."
+
+    if task == "Start Session":
+        return "Try clicking the Start button to begin the session."
+
+    return "It looks like you may be stuck. Try the current task again carefully."
+
 
 def reevaluate_assistant():
     global assistant_dismissed_until
@@ -119,12 +167,11 @@ def reevaluate_assistant():
         summary["page_context"] = get_page_context(summary)
         summary["trigger_reason"] = latest_ui_state.get("reason")
         summary["trigger_score"] = latest_ui_state.get("score")
-        
+
         llm_reply = request_assistance(summary, mode="proactive")
         reply_text = llm_reply.get(
-            "assistant_message",
-            "It looks like you may be stuck. Try checking the highlighted field.",
-        )
+            "assistant_message", ""
+        ).strip() or build_fallback_hint(summary)
         latest_ui_state["assistant_open"] = True
         latest_ui_state["proactive_message"] = reply_text
         latest_ui_state["assistant_message"] = reply_text
@@ -166,7 +213,7 @@ def browser_event():
     context_buffer.add_event(data)
 
     if event_type == "manual_help_open":
-        
+
         # Inject context into LLM payload
         summary = context_buffer.summarize()
         summary["page_context"] = get_page_context(summary)
@@ -175,9 +222,8 @@ def browser_event():
 
         llm_reply = request_assistance(summary, mode="proactive")
         reply_text = llm_reply.get(
-            "assistant_message",
-            "It looks like you may be stuck. Want a hint?"
-        )
+            "assistant_message", ""
+        ).strip() or build_fallback_hint(summary)
 
         latest_ui_state["assistant_open"] = True
         latest_ui_state["nudge"] = False
@@ -230,8 +276,7 @@ def chat_reply():
     user_msg = request.get_json().get("message", "")
     summary = context_buffer.summarize()
     summary["user_message"] = user_msg
-    
-    
+
     # Inject context into LLM payload
     summary["page_context"] = get_page_context(summary)
     summary["trigger_reason"] = latest_ui_state.get("reason")

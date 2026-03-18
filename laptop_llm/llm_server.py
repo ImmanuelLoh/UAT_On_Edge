@@ -32,63 +32,83 @@ def assist():
     user_message = data.get("user_message", "")
     mode = data.get("mode", "proactive")
 
+    allowed_elements = page_context.get("allowed_elements", [])
+    forbidden_inferences = page_context.get("forbidden_inferences", [])
+
     if mode == "chat" and user_message:
         prompt = f"""
-    You are an on-screen usability assistant helping a user complete a web task.
+    You are an on-screen usability assistant for a controlled user test.
 
     Current task: {task}
     Page name: {page_context.get("page_name", "unknown")}
     Page goal: {page_context.get("goal", "unknown")}
-    Hint policy: {page_context.get("hint_policy", "Keep help short")}
+    Allowed UI elements: {allowed_elements}
+    Do not mention or invent: {forbidden_inferences}
 
-    Trigger reason: {trigger_reason}
-    Trigger score: {trigger_score}
-    Wrong clicks on task: {task_wrong_clicks}
-    Form errors: {form_errors}
-    Idle time: {idle_time}
-    Mouse status: {mouse_status}
-    Recent actions: {actions}
+    Observed signals:
+    - Trigger reason: {trigger_reason}
+    - Trigger score: {trigger_score}
+    - Wrong clicks on task: {task_wrong_clicks}
+    - Form errors: {form_errors}
+    - Idle time: {idle_time}
+    - Mouse status: {mouse_status}
+    - Recent actions: {actions}
 
     The user asked: {user_message}
 
-    Answer the user's question directly.
-    Use the page/task context.
-    Keep it short and actionable.
-    """
-        print("LLM INPUT:", data)
+    Rules:
+    - Answer only using the task and page context given above.
+    - Do not invent any UI elements, buttons, icons, colors, shades, or steps not explicitly provided.
+    - If the exact wrong action is unknown, say "incorrect selection" or "wrong click".
+    - Keep the answer to 1 or 2 short sentences.
+    - Be direct and practical.
 
+    Return only the assistant message.
+    """
     else:
         prompt = f"""
-    You are an on-screen usability assistant helping a user complete a web task.
+    You are an on-screen usability assistant for a controlled user test.
 
     Current task: {task}
     Page name: {page_context.get("page_name", "unknown")}
     Page goal: {page_context.get("goal", "unknown")}
-    Hint policy: {page_context.get("hint_policy", "Keep help short")}
+    Allowed UI elements: {allowed_elements}
+    Do not mention or invent: {forbidden_inferences}
 
-    Trigger reason: {trigger_reason}
-    Trigger score: {trigger_score}
-    Wrong clicks on task: {task_wrong_clicks}
-    Form errors: {form_errors}
-    Idle time: {idle_time}
-    Mouse status: {mouse_status}
-    Recent actions: {actions}
+    Observed signals:
+    - Trigger reason: {trigger_reason}
+    - Trigger score: {trigger_score}
+    - Wrong clicks on task: {task_wrong_clicks}
+    - Form errors: {form_errors}
+    - Idle time: {idle_time}
+    - Mouse status: {mouse_status}
+    - Recent actions: {actions}
 
-    Give one short proactive hint.
-    Acknowledge the likely issue briefly.
-    Do not mention internal scores.
-    Speak directly to the user.
+    Rules:
+    - Only mention elements explicitly listed in Allowed UI elements or Page goal.
+    - Do not invent buttons, checkmarks, shades, menus, forms, text fields, or previous steps unless explicitly provided.
+    - Do not mention screen regions unless explicitly stated in the page goal.
+    - If the exact mistake is unknown, say "incorrect selection" or "wrong click".
+    - Keep the response to 1 or 2 short sentences.
+    - Give exactly one concrete next step.
+    - Do not mention internal scores.
+
+    Return only the assistant message.
     """
-        print("LLM INPUT:", data)
 
     ollama_response = requests.post(
-        OLLAMA_URL, json={"model": MODEL, "prompt": prompt, "stream": False}, timeout=20
+        OLLAMA_URL,
+        json={
+            "model": MODEL,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": 0.2,
+                "top_p": 0.8
+            }
+        },
+        timeout=20
     )
-
-    result = ollama_response.json()
-    text = result.get("response", "").strip()
-
-    return jsonify({"assistant_message": text, "source": "ollama"})
 
 
 # Test LLM function, use only if server is down
