@@ -111,6 +111,25 @@ def assist():
     )
 
 
+    try:
+        result = ollama_response.json()
+        assistant_text = result.get("response", "").strip()
+
+        if not assistant_text:
+            assistant_text = "Try reviewing the task instructions again."
+
+        return jsonify({
+            "assistant_message": assistant_text
+        }), 200
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "assistant_message": "LLM response error.",
+            "error": str(e)
+        }), 500
+
 # Test LLM function, use only if server is down
 # @app.route("/assist", methods=["POST"])
 # def assist():
