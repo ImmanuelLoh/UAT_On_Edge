@@ -1,5 +1,5 @@
-LAPTOP_LLM_URL = "http://192.168.0.233:5001/assist"  # laptop IP (wifi)
-# LAPTOP_LLM_URL = "http://172.20.10.2:5001/assist" # Hotspot
+# LAPTOP_LLM_URL = "http://192.168.0.233:5001/assist"  # laptop IP (wifi)
+LAPTOP_LLM_URL = "http://172.20.10.2:5001/assist" # Hotspot
 TRIGGER_THRESHOLD = 0.7
 NUDGE_THRESHOLD = 0.5
 COOLDOWN_SECONDS = 20
