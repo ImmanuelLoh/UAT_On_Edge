@@ -244,7 +244,6 @@ class FaceSensor:
             cv2.putText(frame, f"Frust: {face_result['frustration_score']}", (10, 82), _FONT, 0.6, (0, 165, 255), 2)
             cv2.putText(frame, f"Attn: {face_result['attention_score']}", (10, 109), _FONT, 0.6, (255, 255, 0), 2)
             cv2.imshow("UAT", frame)
-            # cv2.waitKey(1)
         
         return {
             "face_detected": True,
