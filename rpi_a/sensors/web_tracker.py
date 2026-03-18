@@ -5,7 +5,8 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 
-from .uat_monitor import UATMonitor, UATTask
+from uat_monitor import UATMonitor, UATTask
+
 class WebTracker:
     def __init__(self, uat_monitor: UATMonitor, interval: float, url="http://127.0.0.1:5000"):
         self.url = url
@@ -21,7 +22,8 @@ class WebTracker:
         options.binary_location = binary_path
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-        
+        options.add_argument("--start-maximized")
+
         service = Service(driver_path)
         
         self.driver = webdriver.Chrome(service=service, options=options)

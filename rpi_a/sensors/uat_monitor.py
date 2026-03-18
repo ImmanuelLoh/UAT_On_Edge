@@ -126,6 +126,7 @@ class UATMonitor:
         
         for task in self.tasks:
             metrics["tasks"][task.task_name] =  {
+                "isCompleted": task.is_completed,
                 "startTime": task.start_time,
                 "endTime": task.end_time,
                 "totalDuration": task.total_duration,
