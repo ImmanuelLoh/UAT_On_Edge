@@ -1,4 +1,5 @@
 *pycache*
+*.venv/
 
 # UV Related
 uv.lock

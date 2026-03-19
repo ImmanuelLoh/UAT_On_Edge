@@ -1,3 +1,11 @@
+# Need to start MQTT broker
+# On Linux
+#   sudo systemctl enable mosquitto
+#   sudo systemctl start mosquitto
+# On Windows, can use
+#   cd "C:\Program Files\Mosquitto"
+#   mosquitto.exe -c mosquitto.conf -v
+
 import argparse
 import subprocess
 import sys
