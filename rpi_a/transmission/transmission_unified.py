@@ -2,9 +2,9 @@ import time
 import subprocess
 import sys 
 
-from video_stream import VideoStreamClient
-from mqtt_client import MQTTClient, MQTTConstants
-from process_supervisor import ProcessSupervisor
+from VideoStreamClient import VideoStreamClient
+from MQTTClient import MQTTClient
+from ProcessSupervisor import ProcessSupervisor
 
 
 def main():
