@@ -12,19 +12,19 @@ def main():
     # CONFIG
     # =========================
     RECEIVER_IP = sys.argv[1]
-    RECEIVER_PORT = int(sys.argv[2])
-    LABEL = str(RECEIVER_PORT)
+    LABEL = int(sys.argv[2])
 
     # =========================
     # INIT COMPONENTS
     # =========================
     video_client = VideoStreamClient(
         host=RECEIVER_IP,
-        port=RECEIVER_PORT
+        port=LABEL
     )
 
     mqtt_client = MQTTClient(
-        broker_ip=RECEIVER_IP
+        broker_ip=RECEIVER_IP,
+        label=LABEL
     )
 
     # =========================

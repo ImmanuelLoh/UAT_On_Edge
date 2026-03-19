@@ -8,22 +8,17 @@ import json
 class MQTTConstants:
     BROKER_PORT = 1883
     TOPIC = "screen/raw"
-    VALID_LABELS = {"5000", "5002"}
+    VALID_LABELS = {5000, 5002}
 
 class MQTTClient:
-    def __init__(self, broker_ip, broker_port=MQTTConstants.BROKER_PORT, topic=MQTTConstants.TOPIC):
-        if not broker_ip:
-            print("Error: BROKER_IP is required as the first argument")
-            print("Usage: python MQTTClient.py <BROKER_IP> <LABEL>")
-            sys.exit(1)
-
-        if broker_port not in MQTTConstants.VALID_LABELS:
-            print(f"Error: LABEL must be one of {sorted(MQTTConstants.VALID_LABELS)}")
-            print("Usage: python MQTTClient.py <BROKER_IP> <LABEL>")
+    def __init__(self, broker_ip, label=None, topic=MQTTConstants.TOPIC):
+        if not broker_ip or label is None:
+            print("Arguments required: <BROKER_IP> <YOUR_LABEL>")
             sys.exit(1)
             
         self.broker_ip = broker_ip
-        self.broker_port = broker_port
+        self.broker_port = MQTTConstants.BROKER_PORT
+        self.label = label
         self.topic = topic
         self.client = mqtt.Client()
         self.setup()
@@ -60,10 +55,10 @@ class MQTTClient:
     
 def main():
     BROKER_IP = sys.argv[1]
-    LABEL = sys.argv[2]
+    LABEL = int(sys.argv[2])
 
-    mqtt_sender = MQTTClient(broker_ip=BROKER_IP)
-    
+    mqtt_sender = MQTTClient(broker_ip=BROKER_IP, label=LABEL)
+
     while True:
         # Sending example
         payload = mqtt_sender.build_payload(LABEL)
