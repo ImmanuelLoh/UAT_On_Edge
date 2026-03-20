@@ -83,7 +83,7 @@ def get_existing_window_ids() -> set[str]:
         return set()
     
 def position_linux_streams(
-    processes: list[subprocess.Popen],
+    processes: list[tuple[subprocess.Popen, int]],  # (process, port)
     pre_launch_ids: set[str] | None = None,
 ) -> None:
 
@@ -110,6 +110,7 @@ def position_linux_streams(
         timeout_seconds: float = 8.0,
         claimed_ids: set[str] | None = None,
         known_ids: set[str] | None = None,
+        label: str | None = None,          # <-- add this
     ) -> str | None:
         deadline = time.time() + timeout_seconds
         while time.time() < deadline:
@@ -124,19 +125,17 @@ def position_linux_streams(
                     title = parts[4] if len(parts) > 4 else ""
 
                     if claimed_ids and win_id in claimed_ids:
-                        continue  # already assigned to another stream
+                        continue
 
-                    # Strategy 1: direct PID match
-                    if win_pid_str.isdigit() and int(win_pid_str) == pid:
-                        return win_id
-
-                    # Strategy 2: new window with gst-launch title
+                    # Match by label in title (reliable even if PID=0)
                     if (
                         known_ids is not None
                         and win_id not in known_ids
-                        and "gst-launch" in title.lower()
+                        and label is not None
+                        and label.lower() in title.lower()
                     ):
                         return win_id
+
             except Exception:
                 pass
             time.sleep(0.2)
@@ -161,19 +160,25 @@ def position_linux_streams(
 
     claimed_ids: set[str] = set()
 
-    for index, process in enumerate(processes[: len(placements)]):
+    sorted_ports = sorted(port for _, port, _ in processes)
+    port_to_placement = {port: placements[i] for i, port in enumerate(sorted_ports)}
+
+    claimed_ids: set[str] = set()
+
+    for process, port, label in processes:
         win_id = find_window_id_for_pid(
             process.pid,
             timeout_seconds=5.0,
             claimed_ids=claimed_ids,
             known_ids=pre_launch_ids,
+            label=label,
         )
         if win_id is None:
             print(f"Warning: Unable to find Linux window for stream process {process.pid}")
             continue
 
-        claimed_ids.add(win_id)  # prevent next stream from stealing this window
-        x, y, width, height = placements[index]
+        claimed_ids.add(win_id)
+        x, y, width, height = port_to_placement[port]  # port-keyed, not index
 
         try:
             subprocess.run(
@@ -232,6 +237,7 @@ def build_command(gst_path: str, port: int, latency: int, sink: str, label: str)
         "shaded-background=true",
         "!",
         sink,
+        f"window-title={label}",
         "sync=false",
     ]
 
@@ -260,16 +266,16 @@ def main():
     processes = []
 
     try:
+        process_port_pairs = []
         for port, label in streams:
             cmd = build_command(gst_path, port, args.latency, args.sink, label)
-            print(f"Starting receiver for port {port} with label '{label}'")
             p = subprocess.Popen(cmd)
-            processes.append(p)
+            process_port_pairs.append((p, port))
 
         if args.platform == "windows":
             position_windows_streams(processes)
         elif args.platform == "linux":
-            position_linux_streams(processes, pre_launch_ids)
+            position_linux_streams(process_port_pairs, pre_launch_ids)
 
         for p in processes:
             p.wait()
