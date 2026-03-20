@@ -75,10 +75,17 @@ def position_windows_streams(processes: list[subprocess.Popen]) -> None:
         if not moved:
             print(f"Warning: Unable to move window for process {process.pid}")
 
-
-def position_linux_streams(processes: list[subprocess.Popen]) -> None:
-    if not processes:
-        return
+def get_existing_window_ids() -> set[str]:
+    try:
+        out = subprocess.check_output(["wmctrl", "-l"], text=True, stderr=subprocess.DEVNULL)
+        return {line.split()[0] for line in out.splitlines() if line.strip()}
+    except Exception:
+        return set()
+    
+def position_linux_streams(
+    processes: list[subprocess.Popen],
+    pre_launch_ids: set[str] | None = None,
+) -> None:
 
     if not shutil.which("wmctrl"):
         print("Warning: wmctrl not found; cannot position Linux windows automatically.")
@@ -98,18 +105,38 @@ def position_linux_streams(processes: list[subprocess.Popen]) -> None:
             pass
         return 1920, 1080
 
-    def find_window_id_for_pid(pid: int, timeout_seconds: float = 8.0) -> str | None:
+    def find_window_id_for_pid(
+        pid: int,
+        timeout_seconds: float = 8.0,
+        claimed_ids: set[str] | None = None,
+        known_ids: set[str] | None = None,
+    ) -> str | None:
         deadline = time.time() + timeout_seconds
         while time.time() < deadline:
             try:
                 out = subprocess.check_output(["wmctrl", "-lp"], text=True, stderr=subprocess.DEVNULL)
                 for line in out.splitlines():
                     parts = line.split(None, 4)
-                    if len(parts) >= 4:
-                        win_id = parts[0]
-                        win_pid = parts[2]
-                        if win_pid.isdigit() and int(win_pid) == pid:
-                            return win_id
+                    if len(parts) < 4:
+                        continue
+                    win_id = parts[0]
+                    win_pid_str = parts[2]
+                    title = parts[4] if len(parts) > 4 else ""
+
+                    if claimed_ids and win_id in claimed_ids:
+                        continue  # already assigned to another stream
+
+                    # Strategy 1: direct PID match
+                    if win_pid_str.isdigit() and int(win_pid_str) == pid:
+                        return win_id
+
+                    # Strategy 2: new window with gst-launch title
+                    if (
+                        known_ids is not None
+                        and win_id not in known_ids
+                        and "gst-launch" in title.lower()
+                    ):
+                        return win_id
             except Exception:
                 pass
             time.sleep(0.2)
@@ -132,29 +159,30 @@ def position_linux_streams(processes: list[subprocess.Popen]) -> None:
             (2 * margin + pane_width, top, pane_width, usable_height),
         ]
 
+    claimed_ids: set[str] = set()
+
     for index, process in enumerate(processes[: len(placements)]):
-        win_id = find_window_id_for_pid(process.pid)
+        win_id = find_window_id_for_pid(
+            process.pid,
+            timeout_seconds=5.0,
+            claimed_ids=claimed_ids,
+            known_ids=pre_launch_ids,
+        )
         if win_id is None:
             print(f"Warning: Unable to find Linux window for stream process {process.pid}")
             continue
 
+        claimed_ids.add(win_id)  # prevent next stream from stealing this window
         x, y, width, height = placements[index]
 
         try:
-            # Remove maximized state first, otherwise some WMs ignore resize/move
             subprocess.run(
                 ["wmctrl", "-ir", win_id, "-b", "remove,maximized_vert,maximized_horz"],
-                check=False,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
-
-            # Move and resize: gravity,x,y,width,height
             subprocess.run(
                 ["wmctrl", "-ir", win_id, "-e", f"0,{x},{y},{width},{height}"],
-                check=False,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
         except Exception as e:
             print(f"Warning: Unable to move Linux window for process {process.pid}: {e}")
@@ -228,6 +256,7 @@ def main():
     print(f"Listening on streams: {streams}")
     print("Press Ctrl+C to stop.")
 
+    pre_launch_ids = get_existing_window_ids() if args.platform == "linux" else set()
     processes = []
 
     try:
@@ -240,7 +269,7 @@ def main():
         if args.platform == "windows":
             position_windows_streams(processes)
         elif args.platform == "linux":
-            position_linux_streams(processes)
+            position_linux_streams(processes, pre_launch_ids)
 
         for p in processes:
             p.wait()
