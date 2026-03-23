@@ -53,8 +53,20 @@ Laptop Handles:
 ### Prerequisites — install build dependencies:
 ``` bash
 sudo apt update
-sudo apt install -y build-essential libssl-dev zlib1g-dev libncurses5-dev \
-    libffi-dev libsqlite3-dev libreadline-dev libbz2-dev liblzma-dev
+
+sudo apt install -y \
+  build-essential \
+  libssl-dev \
+  zlib1g-dev \
+  libncurses5-dev \
+  libffi-dev \
+  libsqlite3-dev \
+  libreadline-dev \
+  libbz2-dev \
+  liblzma-dev \
+  tk-dev \
+  wget \
+  curl
 ```
 
 ### Download and compile Python 3.11.9:
@@ -67,6 +79,11 @@ cd Python-3.11.9
 make -j$(nproc)
 sudo make altinstall
 ```
+### Verify that tkinter is installed
+``` bash
+/usr/local/python3.11/bin/python3.11 -c "import tkinter; print('Tk OK')"
+```
+
 ### Create and activate the venv:
 ``` bash
 cd UAT_On_Edge
