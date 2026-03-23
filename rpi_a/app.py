@@ -1,5 +1,4 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for
-import threading
 import time
 
 from context_buffer import ContextBuffer
@@ -28,43 +27,6 @@ latest_ui_state = {
     "reason": None,
     "chat_mode": False,
 }
-
-nudge_active = False
-
-
-# def sensor_loop():
-#     while True:
-#         # simulated task + face state
-#         context_buffer.add_event(get_face_state())
-#         context_buffer.add_event(get_task_state())
-
-#         # simulated mouse events
-#         for event in get_mouse_events():
-#             context_buffer.add_event(event)
-
-#         summary = context_buffer.summarize()
-#         result = trigger_engine.evaluate(summary)
-
-#         latest_ui_state["nudge"] = result["nudged"]
-#         latest_ui_state["score"] = result["score"]
-#         latest_ui_state["reason"] = result["reason"]
-
-#         if (result["triggered"] and not latest_ui_state["chat_mode"] and time.time() > assistant_dismissed_until):
-#             llm_reply = request_assistance(summary, mode="proactive")
-#             reply_text = llm_reply.get(
-#                 "assistant_message",
-#                 "It looks like you may be stuck. Try checking the highlighted field."
-#             )
-#             latest_ui_state["assistant_open"] = True
-#             latest_ui_state["proactive_message"] = reply_text
-#             latest_ui_state["assistant_message"] = reply_text
-
-#         time.sleep(2)
-
-
-# @app.route("/")
-# def index():
-#     return render_template("index.html")
 
 
 def get_page_context(summary: dict) -> dict:
@@ -247,23 +209,26 @@ def mouse_event():
     return jsonify({"ok": True, "trigger_result": result})
 
 
-# @app.route("/api/face_event", methods=["POST"])
-# def face_event():
-#     data = request.get_json(force=True) or {}
+@app.route("/api/face_event", methods=["POST"])
+def face_event():
+    data = request.get_json(force=True) or {}
 
-#     event = {
-#         "type": "face_state",
-#         "frustration_score": float(data.get("frustration_score", 0.0)),
-#         "gaze_state": data.get("gaze_state", "unknown"),
-#         "attention_score": data.get("attention_score"),
-#         "emotion": data.get("emotion"),
-#         "blink_rate": data.get("blink_rate"),
-#         "ts": time.time(),
-#     }
+    event = {
+        "type": "face_state",
+        "face_detected": bool(data.get("face_detected", False)),
+        "frustration_score": float(data.get("frustration_score", 0.0)),
+        "attention_score": float(data.get("attention_score", 0.0)),
+        "emotion": data.get("emotion", "N/A"),
+        "direction": data.get("direction", "N/A"),
+        "gaze_quadrant": data.get("gaze_quadrant", "UNCALIBRATED"),
+        "blink_rate": float(data.get("blink_rate", 0.0)),
+        "avg_ear": float(data.get("avg_ear", 0.0)),
+        "ts": time.time(),
+    }
 
-#     context_buffer.add_event(event)
-#     result = reevaluate_assistant()
-#     return jsonify({"ok": True, "trigger_result": result})
+    context_buffer.add_event(event)
+    result = reevaluate_assistant()
+    return jsonify({"ok": True, "trigger_result": result})
 
 
 @app.route("/api/ui_state")

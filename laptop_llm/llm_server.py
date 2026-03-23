@@ -14,10 +14,6 @@ def assist():
 
     task = data.get("task", "unknown task")
 
-    # Not used now
-    frustration = data.get("frustration_score", 0.0)
-    rage_clicks = data.get("rage_clicks", 0)
-
     page_context = data.get("page_context", {})
     trigger_reason = data.get("trigger_reason", "")
     trigger_score = data.get("trigger_score", 0.0)

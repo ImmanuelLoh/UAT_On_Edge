@@ -21,23 +21,21 @@ class ContextBuffer:
         self._prune()
         events = list(self.events)
 
-        click_events = [e for e in events if e.get("type") == "click"]
         form_errors = [e for e in events if e.get("type") == "form_error"]
-        mouse_targets = [e.get("target") for e in click_events if e.get("target")]
-
-        rage_clicks = len(click_events)
-        repeated_target = False
-        if mouse_targets:
-            repeated_target = mouse_targets.count(mouse_targets[-1]) >= 3
-
         mouse_status = "unknown"
         idle_time = 0
         click_rate = 0.0
         overall_click_rate = 0.0
         top_quadrant = None
 
+        face_detected = False
         frustration_score = 0.0
-        gaze_state = "unknown"
+        attention_score = 0.0
+        emotion = "N/A"
+        direction = "N/A"
+        gaze_quadrant = "UNCALIBRATED"
+        blink_rate = 0.0
+        avg_ear = 0.0
 
         current_task = "unknown"
         task_wrong_clicks = 0
@@ -54,8 +52,14 @@ class ContextBuffer:
 
         for e in reversed(events):
             if e.get("type") == "face_state":
+                face_detected = e.get("face_detected", False)
                 frustration_score = e.get("frustration_score", 0.0)
-                gaze_state = e.get("gaze_state", "unknown")
+                attention_score = e.get("attention_score", 0.0)
+                emotion = e.get("emotion", "N/A")
+                direction = e.get("direction", "N/A")
+                gaze_quadrant = e.get("gaze_quadrant", "UNCALIBRATED")
+                blink_rate = e.get("blink_rate", 0.0)
+                avg_ear = e.get("avg_ear", 0.0)
                 break
 
         for e in reversed(events):
@@ -76,6 +80,9 @@ class ContextBuffer:
                 "target": e.get("target"),
                 "task": e.get("task"),
                 "frustration_score": e.get("frustration_score"),
+                "emotion": e.get("emotion"),
+                "direction": e.get("direction"),
+                "gaze_quadrant": e.get("gaze_quadrant"),
             }
             for e in events[-8:]
         ]
@@ -84,10 +91,14 @@ class ContextBuffer:
             "task": current_task,
             "task_wrong_clicks": task_wrong_clicks,
             "task_correct_clicks": task_correct_clicks,
+            "face_detected": face_detected,
             "frustration_score": frustration_score,
-            "gaze_state": gaze_state,
-            "rage_clicks": rage_clicks,
-            "repeated_target": repeated_target,
+            "attention_score": attention_score,
+            "emotion": emotion,
+            "direction": direction,
+            "gaze_quadrant": gaze_quadrant,
+            "blink_rate": blink_rate,
+            "avg_ear": avg_ear,
             "form_errors": len(form_errors),
             "stall_seconds": stall_seconds,
             "mouse_status": mouse_status,

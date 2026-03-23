@@ -1,6 +1,9 @@
 import threading
 import time
 import requests
+import subprocess
+
+from sensors.face_sensor import FaceSensor
 
 from sensors.uat_monitor import UATMonitor, UATTask
 from sensors.web_tracker import WebTracker
@@ -109,7 +112,90 @@ def mouse_bridge_loop():
             print("[Mouse Bridge Error]", e)
 
         time.sleep(1)
+        
+# ================================
+# Face
 
+# Resolution helper
+def get_screen_resolution():
+    try:
+        out = (
+            subprocess.check_output("xrandr | grep '*' | awk '{print $1}'", shell=True)
+            .decode().strip().split("\n")[0]
+        )
+        w, h = map(int, out.split("x"))
+        return w, h
+    except Exception:
+        return 1920, 1080        
+    
+
+# Face → Flask bridge
+def face_bridge_loop():
+    last_snapshot = None
+    last_post_time = 0.0
+
+    screen_w, screen_h = get_screen_resolution()
+    face_sensor = FaceSensor(screen_w, screen_h, debug=True)
+
+    try:
+        print("[Face Bridge] Starting calibration...")
+        face_sensor.calibrate()
+        print("[Face Bridge] Calibration done.")
+
+        while True:
+            face_result = face_sensor.update()
+            now = time.time()
+
+            if now - last_post_time < 1.0:
+                continue
+
+            if face_result and face_result.get("face_detected"):
+                payload = {
+                    "type": "face_state",
+                    "face_detected": True,
+                    "frustration_score": face_result.get("frustration_score", 0.0),
+                    "attention_score": face_result.get("attention_score", 0.0),
+                    "emotion": face_result.get("emotion", "N/A"),
+                    "direction": face_result.get("direction", "N/A"),
+                    "gaze_quadrant": face_result.get("gaze_quadrant", "UNCALIBRATED"),
+                    "blink_rate": face_result.get("blink_rate", 0.0),
+                    "avg_ear": face_result.get("avg_ear", 0.0),
+                }
+            else:
+                payload = {
+                    "face_detected": False,
+                    "frustration_score": 0.0,
+                    "attention_score": 0.0,
+                    "emotion": "N/A",
+                    "direction": "N/A",
+                    "gaze_quadrant": "NO_FACE",
+                    "blink_rate": 0.0,
+                }
+
+            snapshot = (
+                payload["face_detected"],
+                payload["frustration_score"],
+                payload["attention_score"],
+                payload["emotion"],
+                payload["direction"],
+                payload["gaze_quadrant"],
+                payload["blink_rate"],
+            )
+
+            if snapshot != last_snapshot:
+                requests.post(
+                    "http://127.0.0.1:5000/api/face_event",
+                    json=payload,
+                    timeout=0.5,
+                )
+                last_snapshot = snapshot
+
+            last_post_time = now
+
+    except Exception as e:
+        print("[Face Bridge Error]", e)
+    finally:
+        face_sensor.stop()
 
 # ================================
 # Main
@@ -127,6 +213,7 @@ if __name__ == "__main__":
     # Start bridge loops
     threading.Thread(target=uat_bridge_loop, daemon=True).start()
     threading.Thread(target=mouse_bridge_loop, daemon=True).start()
+    threading.Thread(target=face_bridge_loop, daemon=True).start()
 
     # Keep main thread alive
     while True:
