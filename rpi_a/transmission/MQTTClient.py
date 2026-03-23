@@ -7,7 +7,7 @@ import json
 
 class MQTTConstants:
     BROKER_PORT = 1883
-    TOPIC = "screen/raw"
+    TOPIC = "uat/raw"
     VALID_LABELS = {5000, 5002}
 
 class MQTTClient:
