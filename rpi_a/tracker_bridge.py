@@ -4,11 +4,14 @@ import requests
 import subprocess
 
 from sensors.face_sensor import FaceSensor
-
 from sensors.uat_monitor import UATMonitor, UATTask
 from sensors.web_tracker import WebTracker
 from sensors.mouse_tracker import MouseTracker
 
+# Start-up sequence config
+face_sensor = None
+face_ready_event = threading.Event()
+shutdown_event = threading.Event()
 
 # ================================
 # Setup UAT Monitor
@@ -112,41 +115,64 @@ def mouse_bridge_loop():
             print("[Mouse Bridge Error]", e)
 
         time.sleep(1)
-        
+
+
 # ================================
 # Face
+
 
 # Resolution helper
 def get_screen_resolution():
     try:
         out = (
             subprocess.check_output("xrandr | grep '*' | awk '{print $1}'", shell=True)
-            .decode().strip().split("\n")[0]
+            .decode()
+            .strip()
+            .split("\n")[0]
         )
         w, h = map(int, out.split("x"))
         return w, h
     except Exception:
-        return 1920, 1080        
-    
+        return 1920, 1080
 
-# Face → Flask bridge
-def face_bridge_loop():
-    last_snapshot = None
-    last_post_time = 0.0
 
-    screen_w, screen_h = get_screen_resolution()
-    face_sensor = FaceSensor(screen_w, screen_h, debug=True)
-
+# Face start-up calibration
+def calibrate_face_sensor():
+    global face_sensor
     try:
+        screen_w, screen_h = get_screen_resolution()
+        face_sensor = FaceSensor(screen_w, screen_h, debug=True)
+
         print("[Face Bridge] Starting calibration...")
         face_sensor.calibrate()
         print("[Face Bridge] Calibration done.")
 
-        while True:
+        face_ready_event.set()
+
+    except Exception as e:
+        print("[Face Calibration Error]", e)
+        shutdown_event.set()
+
+
+# Face → Flask bridge
+def face_bridge_loop():
+    global face_sensor
+    last_snapshot = None
+    last_post_time = 0.0
+
+    face_ready_event.wait()
+
+    if face_sensor is None:
+        print("[Face Bridge Error] Face sensor not initialised.")
+        return
+
+    try:
+        while not shutdown_event.is_set():
             face_result = face_sensor.update()
             now = time.time()
 
             if now - last_post_time < 1.0:
+                time.sleep(0.01)
                 continue
 
             if face_result and face_result.get("face_detected"):
@@ -163,6 +189,7 @@ def face_bridge_loop():
                 }
             else:
                 payload = {
+                    "type": "face_state",
                     "face_detected": False,
                     "frustration_score": 0.0,
                     "attention_score": 0.0,
@@ -170,6 +197,7 @@ def face_bridge_loop():
                     "direction": "N/A",
                     "gaze_quadrant": "NO_FACE",
                     "blink_rate": 0.0,
+                    "avg_ear": 0.0,
                 }
 
             snapshot = (
@@ -195,7 +223,9 @@ def face_bridge_loop():
     except Exception as e:
         print("[Face Bridge Error]", e)
     finally:
-        face_sensor.stop()
+        if face_sensor is not None:
+            face_sensor.stop()
+
 
 # ================================
 # Main
@@ -203,10 +233,17 @@ def face_bridge_loop():
 if __name__ == "__main__":
     print("[Tracker Bridge] Starting...")
 
-    # Start mouse tracking thread
+    # Start mouse tracker thread first (leave it ready in background)
     threading.Thread(target=mouse_tracker.start, daemon=True).start()
 
-    # Start web tracker (Selenium)
+    # Start blocking face calibration first
+    calibrate_face_sensor()
+
+    # If calibration failed, stop startup
+    if shutdown_event.is_set():
+        raise SystemExit(1)
+
+    # Only after calibration, open the browser
     web_tracker = WebTracker(uat_monitor, interval=1, url="http://127.0.0.1:5000")
     threading.Thread(target=web_tracker.start, daemon=True).start()
 
