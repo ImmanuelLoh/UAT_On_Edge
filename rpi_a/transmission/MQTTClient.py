@@ -69,9 +69,6 @@ class MQTTClient:
     def on_disconnect(self, client, userdata, rc):
         self.connected = False
 
-    def keep_running(self):
-        if not self.connected:
-            time.sleep(1)
 
 def main():
     BROKER_IP = sys.argv[1]

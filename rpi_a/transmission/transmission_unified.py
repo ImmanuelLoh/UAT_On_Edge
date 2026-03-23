@@ -45,7 +45,6 @@ def main():
         while True:
             # Keep video stream alive
             video_supervisor.ensure_running()
-            mqtt_client.keep_running()
             
             # [Other components' logic]
 
