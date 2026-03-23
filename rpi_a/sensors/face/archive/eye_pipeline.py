@@ -4,7 +4,7 @@ import mediapipe
 from math import sqrt
 import numpy as np
 
-from CameraStream import CameraStream  # Force-release any lingering handle on the device
+from rpi_a.sensors.utils.CameraStream import CameraStream  # Force-release any lingering handle on the device
 from GazeCalibrator import GazeCalibrator
 
 # Pin entire process to core 0 only
