@@ -23,7 +23,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sink", default="autovideosink")
     parser.add_argument("--broker", default="127.0.0.1")
     parser.add_argument("--broker-port", type=int, default=1883)
-    parser.add_argument("--raw-topic", default="screen/raw")
+    parser.add_argument("--raw-topic", default="uat/raw")
     return parser.parse_args()
 
 

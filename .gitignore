@@ -1,5 +1,9 @@
 *pycache*
-*.venv/
+*venv/
+*serviceAccountKey.json
+
+# Local buffer
+rpi_b/session_logs
 
 # UV Related
 uv.lock
