@@ -1,5 +1,3 @@
-import os
-os.environ["OPENCV_LOG_LEVEL"] = "SILENT"
 import threading
 import cv2
 import subprocess
