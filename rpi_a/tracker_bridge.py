@@ -21,15 +21,12 @@ from sensors.mouse_tracker import MouseTracker
 RECEIVER_IP = sys.argv[1]
 LABEL = int(sys.argv[2])
 
-video_client = VideoStreamClient(
-    host=RECEIVER_IP,
-    port=LABEL
-)
+video_client = VideoStreamClient(host=RECEIVER_IP, port=LABEL)
 
 video_supervisor = ProcessSupervisor(
     name="videoStreamProcess",
     start_func=video_client.start_video_stream,
-    restart_delay=2
+    restart_delay=2,
 )
 
 # State lock for sending unified payload to MQTT
@@ -58,8 +55,9 @@ latest_state = {
         "gaze_quadrant": "NO_FACE",
         "blink_rate": 0.0,
         "avg_ear": 0.0,
-    }
+    },
 }
+
 
 # Helpers for MQTT payload
 def update_browser_state(data):
@@ -67,19 +65,23 @@ def update_browser_state(data):
         latest_state["browser"].update(data)
         latest_state["timestamp"] = time.time()
 
+
 def update_mouse_state(data):
     with state_lock:
         latest_state["mouse"].update(data)
         latest_state["timestamp"] = time.time()
+
 
 def update_face_state(data):
     with state_lock:
         latest_state["face"].update(data)
         latest_state["timestamp"] = time.time()
 
+
 def get_state_snapshot():
     with state_lock:
         return copy.deepcopy(latest_state)
+
 
 # Start-up sequence config
 face_sensor = None
@@ -125,7 +127,7 @@ def uat_bridge_loop():
                 current.get("correct_click"),
                 current.get("wrong_click"),
             )
-            
+
             # MQTT
             browser_payload = {
                 "task": current.get("taskName", "unknown"),
@@ -185,13 +187,17 @@ def mouse_bridge_loop():
                 metrics.get("overall_clicks_per_second"),
                 metrics.get("top_quadrant"),
             )
-            
+
             # MQTT
             mouse_payload = {
                 "idle_time": metrics.get("idle_time", 0.0),
                 "mouse_status": metrics.get("mouse_status", "unknown"),
-                "interval_clicks_per_second": metrics.get("interval_clicks_per_second", 0.0),
-                "overall_clicks_per_second": metrics.get("overall_clicks_per_second", 0.0),
+                "interval_clicks_per_second": metrics.get(
+                    "interval_clicks_per_second", 0.0
+                ),
+                "overall_clicks_per_second": metrics.get(
+                    "overall_clicks_per_second", 0.0
+                ),
                 "top_quadrant": metrics.get("top_quadrant", "unknown"),
             }
 
@@ -304,7 +310,7 @@ def face_bridge_loop():
                 payload["gaze_quadrant"],
                 payload["blink_rate"],
             )
-            
+
             # MQTT
             face_payload = {
                 "face_detected": payload["face_detected"],
@@ -336,10 +342,11 @@ def face_bridge_loop():
         if face_sensor is not None:
             face_sensor.stop()
 
+
 # MQTT Loop
 def mqtt_publish_loop():
-    broker_ip = "YOUR_BROKER_IP"
-    label = 5000
+    broker_ip = "192.168.0.144"
+    label = 5002
 
     mqtt_client = MQTTClient(broker_ip=broker_ip, label=label)
 
@@ -352,6 +359,7 @@ def mqtt_publish_loop():
             print("[MQTT Publish Error]", e)
 
         time.sleep(0.5)
+
 
 # ================================
 # Main
@@ -387,4 +395,3 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\nShutting down...")
         video_supervisor.stop()
-
