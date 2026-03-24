@@ -55,6 +55,7 @@ async function pollUiState() {
 
         if (data.assistant_open) {
             chatWidget.classList.remove("hidden");
+            chatWidget.classList.remove("collapsed");
         }
 
         const msg = (data.assistant_message || "").trim();

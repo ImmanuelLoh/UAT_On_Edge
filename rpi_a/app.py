@@ -121,7 +121,7 @@ def reevaluate_assistant():
 
     if (
         result["triggered"]
-        and not latest_ui_state["chat_mode"]
+        # and not latest_ui_state["chat_mode"] # Only allow proactive message when chat is CLOSED not minimised
         and time.time() > assistant_dismissed_until
     ):
         # Inject context into LLM Payload
