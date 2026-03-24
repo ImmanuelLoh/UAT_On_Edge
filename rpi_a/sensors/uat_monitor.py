@@ -142,13 +142,13 @@ class UATMonitor:
 
     def get_current_window_stats(self):
         """Prints a final report of all tasks with start, end, and duration."""
-        print("\n" + "="*50)
-        print(f"{'Web Activity Summary':^50}")
+        # print("\n" + "="*50)
+        # print(f"{'Web Activity Summary':^50}")
 
         current_stat = self.generate_metrics()
-        print(current_stat)
+        # print(current_stat)
         
-        print("="*50)
+        # print("="*50)
 
         current_task: UATTask = self.tasks[self.active_task_index]
         # current_task.reset_count()

@@ -268,7 +268,7 @@ def face_bridge_loop():
     if face_sensor is None:
         print("[Face Bridge Error] Face sensor not initialised.")
         return
-
+    
     try:
         while not shutdown_event.is_set():
             face_result = face_sensor.update()
@@ -400,7 +400,14 @@ if __name__ == "__main__":
     # Start bridge loops
     threading.Thread(target=uat_bridge_loop, daemon=True).start()
     threading.Thread(target=mouse_bridge_loop, daemon=True).start()
-    threading.Thread(target=face_bridge_loop, daemon=True).start()
+    
+    # threading.Thread(target=face_bridge_loop, daemon=True).start()
+    print("[Main] starting face_bridge_loop thread")
+    t = threading.Thread(target=face_bridge_loop, daemon=True, name="face_bridge")
+    print("[Main] created thread", t.name)
+    t.start()
+    print("[Main] started thread", t.name)
+    
     threading.Thread(target=mqtt_publish_loop, daemon=True).start()
 
     # Keep main thread alive
