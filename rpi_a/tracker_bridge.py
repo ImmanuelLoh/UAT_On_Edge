@@ -275,7 +275,12 @@ def face_bridge_loop():
             now = time.time()
             
             # DEBUG
-            print("[Face Bridge] raw face_result =", face_result)
+            print("[1] raw face_result:", face_result)
+            
+            if face_result and face_result.get("face_detected"):
+                print("[2] detected real face data")
+            else:
+                print("[2] using default payload branch")
 
             if now - last_post_time < 1.0:
                 time.sleep(0.01)
@@ -331,6 +336,8 @@ def face_bridge_loop():
             update_face_state(face_payload)
             
             # DEBUG
+            print("[3] shared face state now:", get_state_snapshot()["face"])
+            
             print("[Face Bridge] updated shared face state:", face_payload)
 
             # HTTP for LLM
@@ -361,6 +368,7 @@ def mqtt_publish_loop():
     while True:
         try:
             snapshot = get_state_snapshot()
+            print("[4] mqtt snapshot face:", snapshot["face"])
             payload = mqtt_client.build_payload(label, snapshot)
             mqtt_client.publish(payload)
         except Exception as e:
