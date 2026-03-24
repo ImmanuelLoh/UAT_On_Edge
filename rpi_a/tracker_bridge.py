@@ -3,10 +3,83 @@ import time
 import requests
 import subprocess
 
+# MQTT
+import copy
+import json
+import sys
+
+from transmission.MQTTClient import MQTTClient
+from transmission.VideoStreamClient import VideoStreamClient
+from transmission.ProcessSupervisor import ProcessSupervisor
+
 from sensors.face_sensor import FaceSensor
 from sensors.uat_monitor import UATMonitor, UATTask
 from sensors.web_tracker import WebTracker
 from sensors.mouse_tracker import MouseTracker
+
+# MQTT transmission config
+RECEIVER_IP = sys.argv[1]
+LABEL = int(sys.argv[2])
+
+video_client = VideoStreamClient(
+    host=RECEIVER_IP,
+    port=LABEL
+)
+
+video_supervisor = ProcessSupervisor(
+    name="videoStreamProcess",
+    start_func=video_client.start_video_stream,
+    restart_delay=2
+)
+
+# State lock for sending unified payload to MQTT
+state_lock = threading.Lock()
+
+latest_state = {
+    "timestamp": None,
+    "browser": {
+        "task": "unknown",
+        "correct_click": 0,
+        "wrong_click": 0,
+    },
+    "mouse": {
+        "idle_time": 0.0,
+        "mouse_status": "unknown",
+        "interval_clicks_per_second": 0.0,
+        "overall_clicks_per_second": 0.0,
+        "top_quadrant": "unknown",
+    },
+    "face": {
+        "face_detected": False,
+        "frustration_score": 0.0,
+        "attention_score": 0.0,
+        "emotion": "N/A",
+        "direction": "N/A",
+        "gaze_quadrant": "NO_FACE",
+        "blink_rate": 0.0,
+        "avg_ear": 0.0,
+    }
+}
+
+# Helpers for MQTT payload
+def update_browser_state(data):
+    with state_lock:
+        latest_state["browser"].update(data)
+        latest_state["timestamp"] = time.time()
+
+def update_mouse_state(data):
+    with state_lock:
+        latest_state["mouse"].update(data)
+        latest_state["timestamp"] = time.time()
+
+def update_face_state(data):
+    with state_lock:
+        latest_state["face"].update(data)
+        latest_state["timestamp"] = time.time()
+
+def get_state_snapshot():
+    with state_lock:
+        return copy.deepcopy(latest_state)
 
 # Start-up sequence config
 face_sensor = None
@@ -52,7 +125,17 @@ def uat_bridge_loop():
                 current.get("correct_click"),
                 current.get("wrong_click"),
             )
+            
+            # MQTT
+            browser_payload = {
+                "task": current.get("taskName", "unknown"),
+                "correct_click": current.get("correct_click", 0),
+                "wrong_click": current.get("wrong_click", 0),
+            }
 
+            update_browser_state(browser_payload)
+
+            # HTTP for LLM
             if snapshot != last_snapshot:
                 requests.post(
                     "http://127.0.0.1:5000/api/browser_event",
@@ -102,7 +185,19 @@ def mouse_bridge_loop():
                 metrics.get("overall_clicks_per_second"),
                 metrics.get("top_quadrant"),
             )
+            
+            # MQTT
+            mouse_payload = {
+                "idle_time": metrics.get("idle_time", 0.0),
+                "mouse_status": metrics.get("mouse_status", "unknown"),
+                "interval_clicks_per_second": metrics.get("interval_clicks_per_second", 0.0),
+                "overall_clicks_per_second": metrics.get("overall_clicks_per_second", 0.0),
+                "top_quadrant": metrics.get("top_quadrant", "unknown"),
+            }
 
+            update_mouse_state(mouse_payload)
+
+            # HTTP for LLM
             if snapshot != last_snapshot:
                 requests.post(
                     "http://127.0.0.1:5000/api/mouse_event",
@@ -209,7 +304,22 @@ def face_bridge_loop():
                 payload["gaze_quadrant"],
                 payload["blink_rate"],
             )
+            
+            # MQTT
+            face_payload = {
+                "face_detected": payload["face_detected"],
+                "frustration_score": payload["frustration_score"],
+                "attention_score": payload["attention_score"],
+                "emotion": payload["emotion"],
+                "direction": payload["direction"],
+                "gaze_quadrant": payload["gaze_quadrant"],
+                "blink_rate": payload["blink_rate"],
+                "avg_ear": payload["avg_ear"],
+            }
 
+            update_face_state(face_payload)
+
+            # HTTP for LLM
             if snapshot != last_snapshot:
                 requests.post(
                     "http://127.0.0.1:5000/api/face_event",
@@ -226,6 +336,22 @@ def face_bridge_loop():
         if face_sensor is not None:
             face_sensor.stop()
 
+# MQTT Loop
+def mqtt_publish_loop():
+    broker_ip = "YOUR_BROKER_IP"
+    label = 5000
+
+    mqtt_client = MQTTClient(broker_ip=broker_ip, label=label)
+
+    while True:
+        try:
+            snapshot = get_state_snapshot()
+            payload = mqtt_client.build_payload(label, snapshot)
+            mqtt_client.publish(payload)
+        except Exception as e:
+            print("[MQTT Publish Error]", e)
+
+        time.sleep(0.5)
 
 # ================================
 # Main
@@ -251,7 +377,14 @@ if __name__ == "__main__":
     threading.Thread(target=uat_bridge_loop, daemon=True).start()
     threading.Thread(target=mouse_bridge_loop, daemon=True).start()
     threading.Thread(target=face_bridge_loop, daemon=True).start()
+    threading.Thread(target=mqtt_publish_loop, daemon=True).start()
 
     # Keep main thread alive
-    while True:
-        time.sleep(1)
+    try:
+        while True:
+            video_supervisor.ensure_running()
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+        video_supervisor.stop()
+

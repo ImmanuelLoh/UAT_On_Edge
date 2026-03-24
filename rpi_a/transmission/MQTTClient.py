@@ -48,17 +48,49 @@ class MQTTClient:
         else:
             print(f"Published message to {self.topic}: {payload}")
 
-    def build_payload(self, label):
+    # def build_payload(self, label):
+    #     data = {
+    #         "label": label,
+    #         "timestamp": time.time(),
+    #         "frustration_score": round(random.uniform(0, 1), 2),
+    #         "rage_clicks": random.randint(0, 5),
+    #         "mouse_speed": random.randint(50, 500),
+    #         "attention": random.choice(["focused", "distracted"])
+    #     }
+    #     json_data = json.dumps(data)
+    #     return json_data
+    
+    def build_payload(self, label, sensor_state):
         data = {
             "label": label,
-            "timestamp": time.time(),
-            "frustration_score": round(random.uniform(0, 1), 2),
-            "rage_clicks": random.randint(0, 5),
-            "mouse_speed": random.randint(50, 500),
-            "attention": random.choice(["focused", "distracted"])
+            "timestamp": sensor_state.get("timestamp"),
+
+            "browser": {
+                "task": sensor_state.get("browser", {}).get("task", "unknown"),
+                "correct_click": sensor_state.get("browser", {}).get("correct_click", 0),
+                "wrong_click": sensor_state.get("browser", {}).get("wrong_click", 0),
+            },
+
+            "mouse": {
+                "idle_time": sensor_state.get("mouse", {}).get("idle_time", 0.0),
+                "mouse_status": sensor_state.get("mouse", {}).get("mouse_status", "unknown"),
+                "interval_clicks_per_second": sensor_state.get("mouse", {}).get("interval_clicks_per_second", 0.0),
+                "overall_clicks_per_second": sensor_state.get("mouse", {}).get("overall_clicks_per_second", 0.0),
+                "top_quadrant": sensor_state.get("mouse", {}).get("top_quadrant", "unknown"),
+            },
+
+            "face": {
+                "face_detected": sensor_state.get("face", {}).get("face_detected", False),
+                "frustration_score": sensor_state.get("face", {}).get("frustration_score", 0.0),
+                "attention_score": sensor_state.get("face", {}).get("attention_score", 0.0),
+                "emotion": sensor_state.get("face", {}).get("emotion", "N/A"),
+                "direction": sensor_state.get("face", {}).get("direction", "N/A"),
+                "gaze_quadrant": sensor_state.get("face", {}).get("gaze_quadrant", "NO_FACE"),
+                "blink_rate": sensor_state.get("face", {}).get("blink_rate", 0.0),
+                "avg_ear": sensor_state.get("face", {}).get("avg_ear", 0.0),
+            }
         }
-        json_data = json.dumps(data)
-        return json_data
+        return json.dumps(data)
     
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
