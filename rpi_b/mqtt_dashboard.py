@@ -117,11 +117,11 @@ class Dashboard(QWidget):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="MQTT dashboard for stream labels")
-    parser.add_argument("--broker",        default="127.0.0.1")
-    parser.add_argument("--broker-port",   type=int, default=1883)
-    parser.add_argument("--raw-topic",     default="uat/sensor")
-    parser.add_argument("--summary-topic", default="uat/summary")
-    parser.add_argument("--streams",       nargs="+", default=default_stream_args())
+    parser.add_argument("--broker")
+    parser.add_argument("--broker-port",   type=int)
+    parser.add_argument("--raw-topic")
+    parser.add_argument("--summary-topic")
+    parser.add_argument("--streams",       nargs="+")
     return parser.parse_args()
 
 
