@@ -247,8 +247,8 @@ def calibrate_face_sensor():
         print("[Face Bridge] Starting calibration...")
         face_sensor.calibrate()
         print("[Face Bridge] Calibration done.")
-
         face_ready_event.set()
+        print("[Face Bridge] face_ready_event set")
 
     except Exception as e:
         print("[Face Calibration Error]", e)
@@ -261,7 +261,9 @@ def face_bridge_loop():
     last_snapshot = None
     last_post_time = 0.0
 
+    print("[Face Bridge] Waiting for ready event...")
     face_ready_event.wait()
+    print("[Face Bridge] Loop started")
 
     if face_sensor is None:
         print("[Face Bridge Error] Face sensor not initialised.")
@@ -271,6 +273,9 @@ def face_bridge_loop():
         while not shutdown_event.is_set():
             face_result = face_sensor.update()
             now = time.time()
+            
+            # DEBUG
+            print("[Face Bridge] raw face_result =", face_result)
 
             if now - last_post_time < 1.0:
                 time.sleep(0.01)
@@ -324,6 +329,9 @@ def face_bridge_loop():
             }
 
             update_face_state(face_payload)
+            
+            # DEBUG
+            print("[Face Bridge] updated shared face state:", face_payload)
 
             # HTTP for LLM
             if snapshot != last_snapshot:
