@@ -38,6 +38,7 @@ def parse_mqtt_payload(data: dict) -> dict | None:
         browser = data.get("browser", {})
         mouse   = data.get("mouse", {})
         face    = data.get("face", {})
+        llm     = data.get("llm", {})
 
         return {
             "task":                    browser.get("task", "—"),
@@ -54,6 +55,9 @@ def parse_mqtt_payload(data: dict) -> dict | None:
             "direction":               face.get("direction", "—"),
             "gaze_quadrant":           face.get("gaze_quadrant", "—"),
             "blink_rate":              face.get("blink_rate", "—"),
+            "llm_activated":           llm.get("llm_activated", False),
+            "llm_last_role":           llm.get("last_role"),
+            "llm_last_message":        llm.get("last_message", ""),
         }
     except Exception as e:
         logger.warning(f"[Parser] Failed to parse payload: {e}")
@@ -180,6 +184,9 @@ class InsightPanel(QWidget):
     def __init__(self, title: str):
         super().__init__()
         self._title = title
+        self._llm_activated = False # LLM latest persist across ticks
+        self._llm_last_role = None # LLM latest persist across ticks
+        self._llm_last_message = "" # LLM latest persist across ticks
         self._build_ui()
 
     def _build_ui(self):
@@ -252,7 +259,24 @@ class InsightPanel(QWidget):
         self._dot.setStyleSheet(f"color: {color}; font-size: 10px;")
 
     def update_parsed(self, parsed: dict):
-        """Render structured data as labelled rows."""
+        # Update cached LLM state — only overwrite message if a new one arrived
+        if parsed.get("llm_activated"):
+            self._llm_activated = True
+
+        incoming_message = parsed.get("llm_last_message", "")
+        if incoming_message:
+            self._llm_last_message = incoming_message
+            self._llm_last_role = parsed.get("llm_last_role")
+
+        # Reset cache when task changes (llm_activated came in as False)
+        if not parsed.get("llm_activated") and not incoming_message:
+            # Only reset if it was previously activated — avoids resetting on startup
+            if self._llm_activated:
+                self._llm_activated = False
+                self._llm_last_role = None
+                self._llm_last_message = ""
+
+        # Render structured data as labelled rows
         self._clear_content()
         self.set_status_dot(ACCENT_GREEN)
         layout = self._content_layout
