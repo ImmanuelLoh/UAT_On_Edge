@@ -64,7 +64,7 @@ class MQTTClient:
         data = {
             "label": label,
             "timestamp": sensor_state.get("timestamp"),
-
+            
             "browser": {
                 "task": sensor_state.get("browser", {}).get("task", "unknown"),
                 "correct_click": sensor_state.get("browser", {}).get("correct_click", 0),
@@ -88,6 +88,11 @@ class MQTTClient:
                 "gaze_quadrant": sensor_state.get("face", {}).get("gaze_quadrant", "NO_FACE"),
                 "blink_rate": sensor_state.get("face", {}).get("blink_rate", 0.0),
                 "avg_ear": sensor_state.get("face", {}).get("avg_ear", 0.0),
+            },
+            "llm": {
+                "llm_activated": sensor_state.get("llm", {}).get("llm_activated", False),
+                "last_role": sensor_state.get("llm", {}).get("last_role"),
+                "last_message": sensor_state.get("llm", {}).get("last_message", ""),
             }
         }
         return json.dumps(data)

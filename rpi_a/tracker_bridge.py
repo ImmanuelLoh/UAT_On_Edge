@@ -56,6 +56,11 @@ latest_state = {
         "blink_rate": 0.0,
         "avg_ear": 0.0,
     },
+    "llm": {
+        "llm_activated": False,
+        "last_role": None,
+        "last_message": "",
+    }
 }
 
 
@@ -77,6 +82,10 @@ def update_face_state(data):
         latest_state["face"].update(data)
         latest_state["timestamp"] = time.time()
 
+def update_llm_state(data):
+    with state_lock:
+        latest_state["llm"].update(data)
+        latest_state["timestamp"] = time.time()
 
 def get_state_snapshot():
     with state_lock:
@@ -216,6 +225,26 @@ def mouse_bridge_loop():
             print("[Mouse Bridge Error]", e)
 
         time.sleep(1)
+
+
+def llm_bridge_loop():
+    while True:
+        try:
+            resp = requests.get("http://127.0.0.1:5000/api/llm_state", timeout=1.0)
+            data = resp.json()
+
+            llm_payload = {
+                "llm_activated": data.get("llm_activated", False),
+                "last_role": data.get("last_role"),
+                "last_message": data.get("last_message", ""),
+            }
+
+            update_llm_state(llm_payload)
+
+        except Exception as e:
+            print("[LLM Bridge Error]", e)
+
+        time.sleep(0.5)
 
 
 # ================================
@@ -367,10 +396,20 @@ def mqtt_publish_loop():
     label = LABEL
 
     mqtt_client = MQTTClient(broker_ip=broker_ip, label=label)
+    last_published_llm_message = None  # track last sent
+    last_published_llm_role = None
 
     while True:
         try:
             snapshot = get_state_snapshot()
+            current_llm_message = snapshot.get("llm", {}).get("last_message", "")
+
+            if current_llm_message and current_llm_message == last_published_llm_message:
+                snapshot["llm"]["last_message"] = ""
+                snapshot["llm"]["last_role"] = None
+            elif current_llm_message:
+                last_published_llm_message = current_llm_message
+
             # print("[4] mqtt snapshot face:", snapshot["face"])
             payload = mqtt_client.build_payload(label, snapshot)
             mqtt_client.publish(payload)
@@ -411,6 +450,7 @@ if __name__ == "__main__":
     t.start()
     print("[Main] started thread", t.name)
 
+    threading.Thread(target=llm_bridge_loop, daemon=True).start()
     threading.Thread(target=mqtt_publish_loop, daemon=True).start()
 
     # Keep main thread alive

@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 import time
+import threading
 
 from context_buffer import ContextBuffer
 from trigger_engine import TriggerEngine
@@ -28,6 +29,20 @@ latest_ui_state = {
     "chat_mode": False,
 }
 
+# ============= LLM State for MQTT =============
+llm_state_lock = threading.Lock()
+llm_state = {
+    "llm_activated": False,
+    "last_role": None,
+    "last_message": "",
+}
+
+def record_llm_event(role: str, message: str):
+    with llm_state_lock:
+        llm_state["llm_activated"] = True
+        llm_state["last_role"] = role
+        llm_state["last_message"] = message
+# =======  END: LLM State for MQTT =============
 
 # Ensure assistant doesn't run on page 1 & 4
 def is_assistant_allowed(summary: dict) -> bool:
@@ -145,6 +160,11 @@ def reset_assistant_for_new_task():
     latest_ui_state["score"] = 0.0
     latest_ui_state["reason"] = None
 
+    with llm_state_lock:
+        llm_state["llm_activated"] = False
+        llm_state["last_role"] = None
+        llm_state["last_message"] = ""
+
 
 def reevaluate_assistant():
     global assistant_dismissed_until
@@ -193,6 +213,9 @@ def reevaluate_assistant():
         reply_text = llm_reply.get(
             "assistant_message", ""
         ).strip() or build_fallback_hint(summary)
+
+        record_llm_event("assistant", reply_text) # For MQTT dashboard
+
         latest_ui_state["assistant_open"] = True
         latest_ui_state["proactive_message"] = reply_text
         latest_ui_state["assistant_message"] = reply_text
@@ -266,6 +289,8 @@ def browser_event():
             "assistant_message", ""
         ).strip() or build_fallback_hint(summary)
 
+        record_llm_event("assistant", reply_text) # For MQTT dashboard
+
         latest_ui_state["assistant_open"] = True
         latest_ui_state["nudge"] = False
         latest_ui_state["proactive_message"] = reply_text
@@ -318,6 +343,7 @@ def ui_state():
 @app.route("/api/chat_reply", methods=["POST"])
 def chat_reply():
     user_msg = request.get_json().get("message", "")
+    record_llm_event("user", user_msg) # For MQTT dashboard
     summary = context_buffer.summarize()
     summary["user_message"] = user_msg
 
@@ -333,6 +359,7 @@ def chat_reply():
 
     llm_reply = request_assistance(summary, mode="chat")
     reply_text = llm_reply.get("assistant_message", "No response.")
+    record_llm_event("assistant", reply_text) # For MQTT dashboard
 
     latest_ui_state["assistant_open"] = True
     latest_ui_state["chat_message"] = reply_text
@@ -351,6 +378,13 @@ def close_chat():
     latest_ui_state["assistant_message"] = ""
 
     return jsonify({"ok": True})
+
+
+# Endpoint for MQTT dashboard to poll latest LLM state
+@app.route("/api/llm_state")
+def get_llm_state():
+    with llm_state_lock:
+        return jsonify(dict(llm_state))
 
 
 if __name__ == "__main__":
