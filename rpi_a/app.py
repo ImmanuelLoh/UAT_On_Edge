@@ -36,6 +36,10 @@ def get_page_context(summary: dict) -> dict:
         return {
             "page_name": "Page 1 - Task 1",
             "goal": "Click the Start button to begin the session.",
+            "instruction_text": "Click the Start button to begin the session.",
+            "visible_elements": [
+                {"type": "button", "label": "Start button", "position": "center"}
+            ],
             "allowed_elements": ["Start button"],
             "forbidden_inferences": [
                 "forms",
@@ -50,9 +54,16 @@ def get_page_context(summary: dict) -> dict:
         return {
             "page_name": "Page 2 - Task 2",
             "goal": "Click the blue square.",
+            "instruction_text": "The task is to click the BLUE square.",
+            "visible_elements": [
+                {"type": "color square", "label": "red square", "position": "top-left"},
+                {"type": "color square", "label": "blue square", "position": "top-right"},
+                {"type": "color square", "label": "green square", "position": "bottom-left"},
+                {"type": "color square", "label": "yellow square", "position": "bottom-right"},
+            ],
             "allowed_elements": [
-                "blue square",
                 "red square",
+                "blue square",
                 "green square",
                 "yellow square",
             ],
@@ -69,6 +80,22 @@ def get_page_context(summary: dict) -> dict:
         return {
             "page_name": "Page 3 - Task 3",
             "goal": "Select exactly 3 numbers: 1, 3, and 7. Then submit the selection.",
+            "instruction_text": "Select exactly 3 numbers: 1, 3, and 7. Then submit the selection.",
+            "visible_elements": [
+                {"type": "number tile", "label": "1"},
+                {"type": "number tile", "label": "2"},
+                {"type": "number tile", "label": "3"},
+                {"type": "number tile", "label": "4"},
+                {"type": "number tile", "label": "5"},
+                {"type": "number tile", "label": "6"},
+                {"type": "number tile", "label": "7"},
+                {"type": "number tile", "label": "8"},
+                {"type": "number tile", "label": "9"},
+                {"type": "number tile", "label": "10"},
+                {"type": "number tile", "label": "11"},
+                {"type": "number tile", "label": "12"},
+                {"type": "button", "label": "Submit Selection button"},
+            ],
             "allowed_elements": ["number tiles", "Submit Selection button"],
             "forbidden_inferences": [
                 "forms",
@@ -82,6 +109,8 @@ def get_page_context(summary: dict) -> dict:
     return {
         "page_name": task,
         "goal": "Help the user complete the current task.",
+        "instruction_text": "",
+        "visible_elements": [],
         "allowed_elements": [],
         "forbidden_inferences": [],
         "hint_policy": "Keep help brief and actionable.",
@@ -128,7 +157,7 @@ def reevaluate_assistant():
         summary = context_buffer.summarize()
         summary["page_context"] = get_page_context(summary)
         summary["trigger_reason"] = latest_ui_state.get("reason")
-        summary["trigger_score"] = latest_ui_state.get("score")
+        # summary["trigger_score"] = latest_ui_state.get("score")
 
         llm_reply = request_assistance(summary, mode="proactive")
         reply_text = llm_reply.get(
@@ -180,9 +209,9 @@ def browser_event():
         summary = context_buffer.summarize()
         summary["page_context"] = get_page_context(summary)
         summary["trigger_reason"] = latest_ui_state.get("reason")
-        summary["trigger_score"] = latest_ui_state.get("score")
+        # summary["trigger_score"] = latest_ui_state.get("score")
 
-        llm_reply = request_assistance(summary, mode="proactive")
+        llm_reply = request_assistance(summary, mode="chat")
         reply_text = llm_reply.get(
             "assistant_message", ""
         ).strip() or build_fallback_hint(summary)
@@ -245,7 +274,7 @@ def chat_reply():
     # Inject context into LLM payload
     summary["page_context"] = get_page_context(summary)
     summary["trigger_reason"] = latest_ui_state.get("reason")
-    summary["trigger_score"] = latest_ui_state.get("score")
+    # summary["trigger_score"] = latest_ui_state.get("score")
 
     latest_ui_state["chat_mode"] = True
 

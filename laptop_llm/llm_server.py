@@ -30,6 +30,8 @@ def assist():
 
     allowed_elements = page_context.get("allowed_elements", [])
     forbidden_inferences = page_context.get("forbidden_inferences", [])
+    instruction_text = page_context.get("instruction_text", "")
+    visible_elements = page_context.get("visible_elements", [])
 
     if mode == "chat" and user_message:
         prompt = f"""
@@ -38,10 +40,12 @@ def assist():
     Current task: {task}
     Page name: {page_context.get("page_name", "unknown")}
     Page goal: {page_context.get("goal", "unknown")}
+    Instruction text on page: {instruction_text}
+    Visible elements on page: {visible_elements}
     Allowed UI elements: {allowed_elements}
     Do not mention or invent: {forbidden_inferences}
 
-   User Behaviour:
+    User behaviour:
     - Trigger reason: {trigger_reason}
     - Wrong clicks on task: {task_wrong_clicks}
     - Form errors: {form_errors}
@@ -52,17 +56,14 @@ def assist():
     The user asked: {user_message}
 
     Rules:
-    - Answer only using the task and page context given above.
-    - Do not invent any UI elements, buttons, icons, colors, shades, or steps not explicitly provided.
-    - If the exact wrong action is unknown, say "incorrect selection" or "wrong click".
-    - Keep the answer to 1 or 2 short sentences.
-    - Be direct and practical.
-    - NEVER mention scores, metrics, signals, or analysis.
-    - NEVER mention "frustration", "attention", "trigger", or "score".
-    - DO NOT explain why the suggestion is given.
-    - ONLY give the next action the user should take.
-    - Do not include any explanation, reasoning, or observations.
-    - Output only the instruction.
+    - Answer using only the provided page context and visible elements.
+    - You may restate the task in simpler words.
+    - You may list the visible options if the user asks what the options are.
+    - You may mention position only if it is explicitly provided in the visible elements.
+    - Do not invent UI elements, buttons, icons, controls, colors, or steps not explicitly provided.
+    - Never mention scores, metrics, signals, or internal analysis.
+    - Keep the answer short, clear, and specific.
+    - Answer in 1 or 2 short sentences.
 
     Return only the assistant message.
     """
@@ -73,10 +74,12 @@ def assist():
     Current task: {task}
     Page name: {page_context.get("page_name", "unknown")}
     Page goal: {page_context.get("goal", "unknown")}
+    Instruction text on page: {instruction_text}
+    Visible elements on page: {visible_elements}
     Allowed UI elements: {allowed_elements}
     Do not mention or invent: {forbidden_inferences}
 
-    User Behaviour:
+    User behaviour:
     - Trigger reason: {trigger_reason}
     - Wrong clicks on task: {task_wrong_clicks}
     - Form errors: {form_errors}
@@ -85,18 +88,12 @@ def assist():
     - Recent actions: {actions}
 
     Rules:
-    - Only mention elements explicitly listed in Allowed UI elements or Page goal.
-    - Do not invent buttons, checkmarks, shades, menus, forms, text fields, or previous steps unless explicitly provided.
-    - Do not mention screen regions unless explicitly stated in the page goal.
-    - If the exact mistake is unknown, say "incorrect selection" or "wrong click".
-    - Keep the response to 1 or 2 short sentences.
     - Give exactly one concrete next step.
-    - NEVER mention scores, metrics, signals, or analysis.
-    - NEVER mention "frustration", "attention", "trigger", or "score".
-    - DO NOT explain why the suggestion is given.
-    - ONLY give the next action the user should take.
-    - Do not include any explanation, reasoning, or observations.
-    - Output only the instruction.
+    - Only mention elements explicitly listed in the page context.
+    - Do not invent buttons, controls, forms, menus, checkmarks, shades, or hidden elements.
+    - Do not mention internal reasoning, scores, metrics, signals, or observations.
+    - Do not explain why the message is being shown.
+    - Keep the response to one short sentence whenever possible.
 
     Return only the assistant message.
     """
@@ -107,14 +104,10 @@ def assist():
             "model": MODEL,
             "prompt": prompt,
             "stream": False,
-            "options": {
-                "temperature": 0.2,
-                "top_p": 0.8
-            }
+            "options": {"temperature": 0.1, "top_p": 0.6},
         },
-        timeout=20
+        timeout=20,
     )
-
 
     try:
         result = ollama_response.json()
@@ -123,17 +116,17 @@ def assist():
         if not assistant_text:
             assistant_text = "Try reviewing the task instructions again."
 
-        return jsonify({
-            "assistant_message": assistant_text
-        }), 200
+        return jsonify({"assistant_message": assistant_text}), 200
 
     except Exception as e:
         import traceback
+
         traceback.print_exc()
-        return jsonify({
-            "assistant_message": "LLM response error.",
-            "error": str(e)
-        }), 500
+        return (
+            jsonify({"assistant_message": "LLM response error.", "error": str(e)}),
+            500,
+        )
+
 
 # Test LLM function, use only if server is down
 # @app.route("/assist", methods=["POST"])
