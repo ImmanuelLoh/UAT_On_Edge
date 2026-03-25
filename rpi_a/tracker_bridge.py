@@ -268,15 +268,15 @@ def face_bridge_loop():
     if face_sensor is None:
         print("[Face Bridge Error] Face sensor not initialised.")
         return
-    
+
     try:
         while not shutdown_event.is_set():
             face_result = face_sensor.update()
             now = time.time()
-            
+
             # DEBUG
             print("[1] raw face_result:", face_result)
-            
+
             if face_result and face_result.get("face_detected"):
                 print("[2] detected real face data")
             else:
@@ -334,20 +334,23 @@ def face_bridge_loop():
             }
 
             update_face_state(face_payload)
-            
+
             # DEBUG
             print("[3] shared face state now:", get_state_snapshot()["face"])
-            
+
             print("[Face Bridge] updated shared face state:", face_payload)
 
             # HTTP for LLM
             if snapshot != last_snapshot:
-                requests.post(
-                    "http://127.0.0.1:5000/api/face_event",
-                    json=payload,
-                    timeout=0.5,
-                )
-                last_snapshot = snapshot
+                try:
+                    requests.post(
+                        "http://127.0.0.1:5000/api/face_event",
+                        json=payload,
+                        timeout=(0.2, 1.5),  # connect timeout, read timeout
+                    )
+                    last_snapshot = snapshot
+                except requests.RequestException as e:
+                    print("[Face Bridge HTTP Error]", e)
 
             last_post_time = now
 
@@ -400,14 +403,14 @@ if __name__ == "__main__":
     # Start bridge loops
     threading.Thread(target=uat_bridge_loop, daemon=True).start()
     threading.Thread(target=mouse_bridge_loop, daemon=True).start()
-    
+
     # threading.Thread(target=face_bridge_loop, daemon=True).start()
     print("[Main] starting face_bridge_loop thread")
     t = threading.Thread(target=face_bridge_loop, daemon=True, name="face_bridge")
     print("[Main] created thread", t.name)
     t.start()
     print("[Main] started thread", t.name)
-    
+
     threading.Thread(target=mqtt_publish_loop, daemon=True).start()
 
     # Keep main thread alive
