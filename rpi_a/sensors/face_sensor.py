@@ -149,8 +149,11 @@ class FaceSensor:
             self._head_pose = HeadPose(w, h)
     
         print(f"[FaceSensor] Phase 2: Face calibration - relax face, look at camera ({_FACE_CALIB_SECS}s)\n")
+        cv2.namedWindow("UAT", cv2.WINDOW_NORMAL)
+        cv2.setWindowProperty("UAT", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         face_calib_done = False
         face_calib_start = time.time()
+        remaining = _FACE_CALIB_SECS
 
         while not face_calib_done:
             ret, frame = self._stream.read()
@@ -181,14 +184,20 @@ class FaceSensor:
                         print("[FaceSensor] WARNING: Face calibration failed - retrying...")
                         face_calib_start = time.time()
  
-                cv2.rectangle(frame, (0, 0), (w, 42), (0, 140, 255), -1)
-                cv2.putText(frame,
-                    f"Relax face, look at camera ({remaining:.1f}s)",
-                    (10, 28), _FONT, 0.6, (255, 255, 255), 2)
-            else:
-                cv2.putText(frame, "No face detected", (10, 28), _FONT, 0.7, (0, 0, 255), 2)
- 
-            cv2.imshow("UAT", frame)
+                canvas = np.zeros((self._screen_h, self._screen_w, 3), dtype=np.uint8)
+                text1 = "Calibrating..."
+                text2 = f"Relax your face and look at the camera ({remaining:.1f}s)"
+
+                (t1_w, t1_h), _ = cv2.getTextSize(text1, _FONT, 1.5, 3)
+                (t2_w, t2_h), _ = cv2.getTextSize(text2, _FONT, 0.8, 2)
+
+                cv2.putText(canvas, text1,
+                            (self._screen_w//2 - t1_w//2, self._screen_h//2 - 40),
+                            _FONT, 1.5, (255, 255, 255), 3)
+                cv2.putText(canvas, text2,
+                            (self._screen_w//2 - t2_w//2, self._screen_h//2 + 20),
+                            _FONT, 0.8, (200, 200, 200), 2)
+                cv2.imshow("UAT", canvas)
  
             if key == ord("q"):
                 print("[FaceSensor] Quit during face calibration.")
