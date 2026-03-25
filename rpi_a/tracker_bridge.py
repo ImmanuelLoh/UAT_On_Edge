@@ -363,8 +363,8 @@ def face_bridge_loop():
 
 # MQTT Loop
 def mqtt_publish_loop():
-    broker_ip = "192.168.0.144"
-    label = 5002
+    broker_ip = RECEIVER_IP
+    label = LABEL
 
     mqtt_client = MQTTClient(broker_ip=broker_ip, label=label)
 
