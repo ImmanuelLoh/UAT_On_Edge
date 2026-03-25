@@ -100,44 +100,45 @@ class FaceSensor:
         while time.time() - warmup_start < _WARMUP_SECS:
             self._stream.read()
             
-        # PHASE 1: Gaze calibration 
-        print(f"[FaceSensor] Phase 1: Gaze calibration - follow the dots, press SPACE per point\n")
-        while not self._eye_analytics.calibration_done:
-            ret, frame = self._stream.read()
-            if not ret:
-                continue
- 
-            h, w = frame.shape[:2]
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
- 
-            results = self._face_mesh.process(rgb)
-            frame = cv2.flip(frame, 1)
- 
-            # Init HeadPose on first frame
-            if self._head_pose is None:
-                self._head_pose = HeadPose(w, h)
- 
-            key = cv2.waitKey(1) & 0xFF
-            space_pressed = key == ord(" ")
- 
-            if results.multi_face_landmarks:
-                lm = results.multi_face_landmarks[0].landmark
-                pitch, yaw, roll, _, _ = self._head_pose.estimate(lm)
-                status = self._eye_analytics.update_calibration(
-                    lm, w, h, yaw, pitch, space_pressed
-                )
- 
-            # Only show dot screen during gaze calibration
-            calib_canvas = self._eye_analytics.draw_calibration_screen()
-            cv2.imshow("Gaze Calibration", calib_canvas)
- 
-            if key == ord("q"):
-                print("[FaceSensor] Quit during gaze calibration.")
-                self.stop()
-                raise SystemExit
- 
-        cv2.destroyWindow("Gaze Calibration")
-        print("[FaceSensor] Gaze calibration complete.\n")
+        if self._debug:
+            # PHASE 1: Gaze calibration 
+            print(f"[FaceSensor] Phase 1: Gaze calibration - follow the dots, press SPACE per point\n")
+            while not self._eye_analytics.calibration_done:
+                ret, frame = self._stream.read()
+                if not ret:
+                    continue
+    
+                h, w = frame.shape[:2]
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    
+                results = self._face_mesh.process(rgb)
+                frame = cv2.flip(frame, 1)
+    
+                # Init HeadPose on first frame
+                if self._head_pose is None:
+                    self._head_pose = HeadPose(w, h)
+    
+                key = cv2.waitKey(1) & 0xFF
+                space_pressed = key == ord(" ")
+    
+                if results.multi_face_landmarks:
+                    lm = results.multi_face_landmarks[0].landmark
+                    pitch, yaw, roll, _, _ = self._head_pose.estimate(lm)
+                    status = self._eye_analytics.update_calibration(
+                        lm, w, h, yaw, pitch, space_pressed
+                    )
+    
+                # Only show dot screen during gaze calibration
+                calib_canvas = self._eye_analytics.draw_calibration_screen()
+                cv2.imshow("Gaze Calibration", calib_canvas)
+    
+                if key == ord("q"):
+                    print("[FaceSensor] Quit during gaze calibration.")
+                    self.stop()
+                    raise SystemExit
+    
+            cv2.destroyWindow("Gaze Calibration")
+            print("[FaceSensor] Gaze calibration complete.\n")
         
         
         # PHASE 2: Face analytics calibration
