@@ -57,9 +57,21 @@ def get_page_context(summary: dict) -> dict:
             "instruction_text": "The task is to click the BLUE square.",
             "visible_elements": [
                 {"type": "color square", "label": "red square", "position": "top-left"},
-                {"type": "color square", "label": "blue square", "position": "top-right"},
-                {"type": "color square", "label": "green square", "position": "bottom-left"},
-                {"type": "color square", "label": "yellow square", "position": "bottom-right"},
+                {
+                    "type": "color square",
+                    "label": "blue square",
+                    "position": "top-right",
+                },
+                {
+                    "type": "color square",
+                    "label": "green square",
+                    "position": "bottom-left",
+                },
+                {
+                    "type": "color square",
+                    "label": "yellow square",
+                    "position": "bottom-right",
+                },
             ],
             "allowed_elements": [
                 "red square",
@@ -201,15 +213,24 @@ def browser_event():
     data["ts"] = time.time()
 
     event_type = data.get("type")
-    context_buffer.add_event(data)
 
+    # Convert frontend events into backend events
+    if event_type == "task_submit_result":
+        if data.get("result") == "incorrect":
+            context_buffer.add_event(
+                {"type": "form_error", "target": data.get("task"), "ts": data["ts"]}
+            )
+        # Don't store the original event
+    else:
+        context_buffer.add_event(data)
+
+    # Manual help
     if event_type == "manual_help_open":
 
-        # Inject context into LLM payload
+        # Inject context into LLM Payload
         summary = context_buffer.summarize()
         summary["page_context"] = get_page_context(summary)
         summary["trigger_reason"] = latest_ui_state.get("reason")
-        # summary["trigger_score"] = latest_ui_state.get("score")
 
         llm_reply = request_assistance(summary, mode="chat")
         reply_text = llm_reply.get(
