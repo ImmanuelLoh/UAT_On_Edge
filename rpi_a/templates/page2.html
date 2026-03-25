@@ -166,7 +166,18 @@
         }
         
         // Initialize when page opens
-        window.onload = initTask;
+        window.onload = function () {
+            initTask();
+
+            fetch("/api/browser_event", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    type: "task_state",
+                    task: "Click the Color"
+                })
+            });
+        };
     </script>
 
     <script src="{{ url_for('static', filename='js/chat.js') }}"></script>

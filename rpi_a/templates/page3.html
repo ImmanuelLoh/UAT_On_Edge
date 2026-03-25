@@ -250,17 +250,17 @@
     <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
     
     <script>
-window.addEventListener("load", () => {
-    fetch("/api/browser_event", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            type: "task_state",
-            task: "Number Selections"
-        })
+    window.addEventListener("load", () => {
+        fetch("/api/browser_event", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                type: "task_state",
+                task: "Number Selections"
+            })
+        });
     });
-});
-</script>
+    </script>
 </body>
 
 </html>

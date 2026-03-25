@@ -146,6 +146,16 @@ def build_fallback_hint(summary: dict) -> str:
 
     return "It looks like you may be stuck. Try the current task again carefully."
 
+# Helper to reset state in LLM assistant
+def reset_assistant_for_new_task():
+    latest_ui_state["assistant_open"] = False
+    latest_ui_state["assistant_message"] = ""
+    latest_ui_state["proactive_message"] = ""
+    latest_ui_state["chat_message"] = ""
+    latest_ui_state["nudge"] = False
+    latest_ui_state["chat_mode"] = False
+    latest_ui_state["score"] = 0.0
+    latest_ui_state["reason"] = None
 
 def reevaluate_assistant():
     global assistant_dismissed_until
@@ -214,6 +224,9 @@ def browser_event():
 
     event_type = data.get("type")
 
+    previous_task = context_buffer.summarize().get("task", "unknown")
+
+
     # Convert frontend events into backend events
     if event_type == "task_submit_result":
         if data.get("result") == "incorrect":
@@ -223,6 +236,11 @@ def browser_event():
         # Don't store the original event
     else:
         context_buffer.add_event(data)
+    
+    if event_type == "task_state":
+        new_task = data.get("task", "unknown")
+        if new_task != previous_task:
+            reset_assistant_for_new_task()
 
     # Manual help
     if event_type == "manual_help_open":

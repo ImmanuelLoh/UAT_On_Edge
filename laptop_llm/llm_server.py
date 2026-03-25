@@ -64,6 +64,8 @@ def assist():
     - Never mention scores, metrics, signals, or internal analysis.
     - Keep the answer short, clear, and specific.
     - Answer in 1 or 2 short sentences.
+    - For number tiles, refer to choices only by their number labels.
+    - Never use spatial descriptions like top, bottom, left, right, first, last, or middle unless the page context explicitly provides positions.
 
     Return only the assistant message.
     """
@@ -94,6 +96,8 @@ def assist():
     - Do not mention internal reasoning, scores, metrics, signals, or observations.
     - Do not explain why the message is being shown.
     - Keep the response to one short sentence whenever possible.
+    - For number tiles, refer to choices only by their number labels.
+    - Never use spatial descriptions like top, bottom, left, right, first, last, or middle unless the page context explicitly provides positions.
 
     Return only the assistant message.
     """
