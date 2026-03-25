@@ -205,6 +205,7 @@ class FaceSensor:
                 raise SystemExit
         self._analytics_start = time.time()
         self._last_frame_time = time.time()
+        cv2.destroyWindow("UAT")
         print("\n[FaceSensor] Calibration complete. Ready for analytics.\n")
             
     # Per-frame processing after calibration
