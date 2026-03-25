@@ -128,11 +128,16 @@ def score_color(score) -> str:
 
 
 class Divider(QFrame):
-    def __init__(self):
+    def __init__(self, vertical=False):
         super().__init__()
-        self.setFrameShape(QFrame.Shape.HLine)
-        self.setStyleSheet(f"color: {BORDER}; background: {BORDER}; border: none; max-height: 1px;")
-
+        if vertical:
+            self.setFrameShape(QFrame.Shape.VLine)
+            self.setStyleSheet(f"background: {BORDER}; width: 1px; border: none;")
+            self.setFixedWidth(1)
+        else:
+            self.setFrameShape(QFrame.Shape.HLine)
+            self.setStyleSheet(f"background: {BORDER}; height: 1px; border: none;")
+            self.setFixedHeight(1)
 
 class SectionHeader(QLabel):
     def __init__(self, text: str):
@@ -179,14 +184,15 @@ class DataRow(QWidget):
 
 class InsightPanel(QWidget):
     """
-    A card that displays parsed MQTT data or falls back to raw JSON.
+    A horizontal card that displays MQTT data in three columns:
+    [ Task & Mouse ] | [ Face & Gaze ] | [ LLM Assistant ]
     """
     def __init__(self, title: str):
         super().__init__()
         self._title = title
-        self._llm_activated = False # LLM latest persist across ticks
-        self._llm_last_role = None # LLM latest persist across ticks
-        self._llm_last_message = "" # LLM latest persist across ticks
+        self._llm_activated = False 
+        self._llm_last_role = None 
+        self._llm_last_message = "" 
         self._build_ui()
 
     def _build_ui(self):
@@ -198,153 +204,123 @@ class InsightPanel(QWidget):
                 border-radius: 10px;
             }}
         """)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        
+        # Main vertical layout for the whole card
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(16, 12, 16, 12)
+        main_layout.setSpacing(10)
 
-        # Outer layout holds the fixed header + scrollable body
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(16, 14, 16, 14)
-        outer.setSpacing(8)
-
-        # Header
+        # 1. Header Row
         header_row = QHBoxLayout()
-        header_row.setContentsMargins(0, 0, 0, 0)
-
         title_lbl = QLabel(self._title)
-        title_lbl.setStyleSheet(f"""
-            color: {TEXT_PRIMARY};
-            font-size: 14px;
-            font-weight: 700;
-            font-family: {FONT_TITLE};
-        """)
-
+        title_lbl.setStyleSheet(f"color: {TEXT_PRIMARY}; font-size: 14px; font-weight: 700; font-family: {FONT_TITLE};")
         self._dot = QLabel("●")
         self._dot.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 10px;")
-
+        
         header_row.addWidget(title_lbl)
         header_row.addStretch()
         header_row.addWidget(self._dot)
+        main_layout.addLayout(header_row)
+        main_layout.addWidget(Divider())
 
-        outer.addLayout(header_row)
-        outer.addWidget(Divider())
+        # 2. Three-Column Content Area
+        self.columns_container = QHBoxLayout()
+        self.columns_container.setSpacing(15)
 
-        # Scrollable content area
-        self._scroll = QScrollArea()
-        self._scroll.setWidgetResizable(True)
-        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._scroll.setStyleSheet("background: transparent;")
+        # Column A: Task & Mouse
+        self.col_a = QVBoxLayout()
+        # Column B: Face & Gaze
+        self.col_b = QVBoxLayout()
+        # Column C: LLM (Wider)
+        self.col_c = QVBoxLayout()
 
-        self._content_widget = QWidget()
-        self._content_widget.setStyleSheet("background: transparent;")
-        self._content_layout = QVBoxLayout(self._content_widget)
-        self._content_layout.setContentsMargins(0, 4, 0, 4)
-        self._content_layout.setSpacing(2)
-        self._content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.columns_container.addLayout(self.col_a, 1)
+        self.columns_container.addWidget(Divider(vertical=True))
+        self.columns_container.addLayout(self.col_b, 1)
+        self.columns_container.addWidget(Divider(vertical=True))
+        self.columns_container.addLayout(self.col_c, 2) # Give LLM more space
 
-        # Default placeholder
-        placeholder = QLabel("Waiting for MQTT data…")
-        placeholder.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 12px; font-family: {FONT_SANS};")
-        self._content_layout.addWidget(placeholder)
+        main_layout.addLayout(self.columns_container)
 
-        self._scroll.setWidget(self._content_widget)
-        outer.addWidget(self._scroll, 1)
-
-    def _clear_content(self):
-        while self._content_layout.count():
-            item = self._content_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+    def _clear_columns(self):
+        for layout in [self.col_a, self.col_b, self.col_c]:
+            while layout.count():
+                item = layout.takeAt(0)
+                if item.widget():
+                    item.widget().deleteLater()
 
     def set_status_dot(self, color: str):
         self._dot.setStyleSheet(f"color: {color}; font-size: 10px;")
 
     def update_parsed(self, parsed: dict):
-        # Update cached LLM state — only overwrite message if a new one arrived
+        # --- Persistent LLM Logic ---
         if parsed.get("llm_activated"):
             self._llm_activated = True
-
-        incoming_message = parsed.get("llm_last_message", "")
-        if incoming_message:
-            self._llm_last_message = incoming_message
+        
+        incoming_msg = parsed.get("llm_last_message", "")
+        if incoming_msg:
+            self._llm_last_message = incoming_msg
             self._llm_last_role = parsed.get("llm_last_role")
 
-        # Reset cache when task changes (llm_activated came in as False)
-        if not parsed.get("llm_activated") and not incoming_message:
-            # Only reset if it was previously activated — avoids resetting on startup
-            if self._llm_activated:
+        if not parsed.get("llm_activated") and not incoming_msg:
+            if self._llm_activated: # Reset if task ended
                 self._llm_activated = False
                 self._llm_last_role = None
                 self._llm_last_message = ""
 
-        # Render structured data as labelled rows
-        self._clear_content()
+        self._clear_columns()
         self.set_status_dot(ACCENT_GREEN)
-        layout = self._content_layout
 
-        # ── Task ──────────────────────────────────────────────
-        layout.addWidget(SectionHeader("Task"))
-        layout.addWidget(DataRow("Current Task", str(parsed["task"])))
-        layout.addWidget(DataRow("Correct Clicks", str(parsed["correct_click"])))
-        layout.addWidget(DataRow("Wrong Clicks",   str(parsed["wrong_click"])))
-        layout.addSpacing(6)
-        layout.addWidget(Divider())
-        layout.addSpacing(4)
+        # --- COLUMN A: TASK & MOUSE ---
+        self.col_a.addWidget(SectionHeader("Task"))
+        self.col_a.addWidget(DataRow("Current", str(parsed["task"])))
+        self.col_a.addWidget(DataRow("Correct", str(parsed["correct_click"])))
+        self.col_a.addWidget(DataRow("Wrong", str(parsed["wrong_click"])))
+        
+        self.col_a.addSpacing(12)
+        self.col_a.addWidget(SectionHeader("Mouse"))
+        m_status = str(parsed["mouse_status"]).upper()
+        m_color = ACCENT_GREEN if m_status == "ACTIVE" else ACCENT_AMBER
+        self.col_a.addWidget(DataRow("Status", m_status, m_color))
+        self.col_a.addWidget(DataRow("Idle (s)", str(parsed["idle_time"])))
+        self.col_a.addStretch()
 
-        # ── Mouse ─────────────────────────────────────────────
-        layout.addWidget(SectionHeader("Mouse"))
-        mouse_color = ACCENT_GREEN if str(parsed["mouse_status"]).upper() == "ACTIVE" else ACCENT_AMBER
-        layout.addWidget(DataRow("Status",         str(parsed["mouse_status"]), mouse_color))
-        layout.addWidget(DataRow("Idle Time (s)",  str(parsed["idle_time"])))
-        layout.addWidget(DataRow("Clicks / sec",   str(parsed["clicks_per_second"])))
-        layout.addWidget(DataRow("Top Quadrant",   str(parsed["top_quadrant"])))
-        layout.addSpacing(6)
-        layout.addWidget(Divider())
-        layout.addSpacing(4)
+        # --- COLUMN B: FACE & GAZE ---
+        self.col_b.addWidget(SectionHeader("Biometrics"))
+        self.col_b.addWidget(DataRow("Emotion", str(parsed["emotion"]), emotion_color(parsed["emotion"])))
+        self.col_b.addWidget(DataRow("Frustration", f"{parsed['frustration_score']}", score_color(parsed["frustration_score"])))
+        self.col_b.addWidget(DataRow("Attention", f"{parsed['attention_score']}"))
+        
+        self.col_b.addSpacing(12)
+        self.col_b.addWidget(SectionHeader("Gaze"))
+        self.col_b.addWidget(DataRow("Direction", str(parsed["direction"])))
+        self.col_b.addWidget(DataRow("Quadrant", str(parsed["gaze_quadrant"])))
+        self.col_b.addStretch()
 
-        # ── Face ──────────────────────────────────────────────
-        layout.addWidget(SectionHeader("Face & Gaze"))
-        face_color = ACCENT_GREEN if str(parsed["face_detected"]).lower() == "true" else ACCENT_RED
-        layout.addWidget(DataRow("Face Detected",    str(parsed["face_detected"]), face_color))
-        layout.addWidget(DataRow("Emotion",           str(parsed["emotion"]),
-                                 emotion_color(str(parsed["emotion"]))))
-        layout.addWidget(DataRow("Frustration Score", f'{parsed["frustration_score"]}',
-                                 score_color(parsed["frustration_score"])))
-        layout.addWidget(DataRow("Attention Score",   f'{parsed["attention_score"]}'))
-        layout.addWidget(DataRow("Direction",         str(parsed["direction"])))
-        layout.addWidget(DataRow("Gaze Quadrant",     str(parsed["gaze_quadrant"])))
-        layout.addWidget(DataRow("Blink Rate (bpm)",  str(parsed["blink_rate"])))
-
-        # ── LLM Assistant ─────────────────────────────────────
-        layout.addSpacing(6)
-        layout.addWidget(Divider())
-        layout.addSpacing(4)
-        layout.addWidget(SectionHeader("LLM Assistant"))
-
+        # --- COLUMN C: LLM ASSISTANT ---
+        self.col_c.addWidget(SectionHeader("AI Assistant"))
         if self._llm_activated:
-            layout.addWidget(DataRow("Status", "Activated", ACCENT_GREEN))
-            if self._llm_last_message:
-                role_label = "Assistant" if self._llm_last_role == "assistant" else "User"
-                role_color = ACCENT_BLUE if self._llm_last_role == "assistant" else TEXT_PRIMARY
-                layout.addWidget(DataRow("Last Speaker", role_label, role_color))
-
-                # Message bubble
-                msg_lbl = QLabel(self._llm_last_message)
-                msg_lbl.setWordWrap(True)
-                msg_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-                msg_lbl.setStyleSheet(f"""
-                    color: {TEXT_PRIMARY};
-                    font-size: 12px;
-                    font-family: {FONT_SANS};
-                    background: {LIGHT_BG};
-                    border-left: 3px solid {role_color};
-                    border-radius: 4px;
-                    padding: 6px 8px;
-                """)
-                layout.addWidget(msg_lbl)
+            status_text = "Activated"
+            status_color = ACCENT_GREEN
         else:
-            layout.addWidget(DataRow("Status", "Not activated", TEXT_MUTED))
+            status_text = "Idle"
+            status_color = TEXT_MUTED
+            
+        self.col_c.addWidget(DataRow("Status", status_text, status_color))
+        
+        if self._llm_last_message:
+            role_label = "Assistant" if self._llm_last_role == "assistant" else "User"
+            role_color = ACCENT_BLUE if self._llm_last_role == "assistant" else TEXT_PRIMARY
+            self.col_c.addWidget(DataRow("Speaker", role_label, role_color))
 
-        layout.addStretch()
+            msg_lbl = QLabel(self._llm_last_message)
+            msg_lbl.setWordWrap(True)
+            msg_lbl.setStyleSheet(f"""
+                color: {TEXT_PRIMARY}; font-size: 12px; background: {LIGHT_BG};
+                border-left: 3px solid {role_color}; border-radius: 4px; padding: 8px;
+            """)
+            self.col_c.addWidget(msg_lbl)
+        self.col_c.addStretch()
         
     def update_raw(self, raw_json: str):
         """Fallback: render raw JSON in a monospace label."""
@@ -454,7 +430,7 @@ class Dashboard(QWidget):
         for index, (port, label) in enumerate(streams):
             panel_title = f"{label}  ·  :{port}"
             panel = InsightPanel(panel_title)
-            panel.setMinimumSize(300, 480)
+            panel.setMinimumSize(850, 280) # Wide and short
             row = index // 2
             col = index % 2
             grid.addWidget(panel, row, col)
