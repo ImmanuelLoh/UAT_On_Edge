@@ -242,7 +242,7 @@ def calibrate_face_sensor():
     global face_sensor
     try:
         screen_w, screen_h = get_screen_resolution()
-        face_sensor = FaceSensor(screen_w, screen_h, debug=True)
+        face_sensor = FaceSensor(screen_w, screen_h, debug=False)
 
         print("[Face Bridge] Starting calibration...")
         face_sensor.calibrate()
