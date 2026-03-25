@@ -314,8 +314,38 @@ class InsightPanel(QWidget):
         layout.addWidget(DataRow("Gaze Quadrant",     str(parsed["gaze_quadrant"])))
         layout.addWidget(DataRow("Blink Rate (bpm)",  str(parsed["blink_rate"])))
 
-        layout.addStretch()
+        # ── LLM Assistant ─────────────────────────────────────
+        layout.addSpacing(6)
+        layout.addWidget(Divider())
+        layout.addSpacing(4)
+        layout.addWidget(SectionHeader("LLM Assistant"))
 
+        if self._llm_activated:
+            layout.addWidget(DataRow("Status", "Activated", ACCENT_GREEN))
+            if self._llm_last_message:
+                role_label = "Assistant" if self._llm_last_role == "assistant" else "User"
+                role_color = ACCENT_BLUE if self._llm_last_role == "assistant" else TEXT_PRIMARY
+                layout.addWidget(DataRow("Last Speaker", role_label, role_color))
+
+                # Message bubble
+                msg_lbl = QLabel(self._llm_last_message)
+                msg_lbl.setWordWrap(True)
+                msg_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+                msg_lbl.setStyleSheet(f"""
+                    color: {TEXT_PRIMARY};
+                    font-size: 12px;
+                    font-family: {FONT_SANS};
+                    background: {LIGHT_BG};
+                    border-left: 3px solid {role_color};
+                    border-radius: 4px;
+                    padding: 6px 8px;
+                """)
+                layout.addWidget(msg_lbl)
+        else:
+            layout.addWidget(DataRow("Status", "Not activated", TEXT_MUTED))
+
+        layout.addStretch()
+        
     def update_raw(self, raw_json: str):
         """Fallback: render raw JSON in a monospace label."""
         self._clear_content()
