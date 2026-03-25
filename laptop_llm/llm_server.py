@@ -41,9 +41,8 @@ def assist():
     Allowed UI elements: {allowed_elements}
     Do not mention or invent: {forbidden_inferences}
 
-    Observed signals:
+   User Behaviour:
     - Trigger reason: {trigger_reason}
-    - Trigger score: {trigger_score}
     - Wrong clicks on task: {task_wrong_clicks}
     - Form errors: {form_errors}
     - Idle time: {idle_time}
@@ -58,6 +57,12 @@ def assist():
     - If the exact wrong action is unknown, say "incorrect selection" or "wrong click".
     - Keep the answer to 1 or 2 short sentences.
     - Be direct and practical.
+    - NEVER mention scores, metrics, signals, or analysis.
+    - NEVER mention "frustration", "attention", "trigger", or "score".
+    - DO NOT explain why the suggestion is given.
+    - ONLY give the next action the user should take.
+    - Do not include any explanation, reasoning, or observations.
+    - Output only the instruction.
 
     Return only the assistant message.
     """
@@ -71,9 +76,8 @@ def assist():
     Allowed UI elements: {allowed_elements}
     Do not mention or invent: {forbidden_inferences}
 
-    Observed signals:
+    User Behaviour:
     - Trigger reason: {trigger_reason}
-    - Trigger score: {trigger_score}
     - Wrong clicks on task: {task_wrong_clicks}
     - Form errors: {form_errors}
     - Idle time: {idle_time}
@@ -87,7 +91,12 @@ def assist():
     - If the exact mistake is unknown, say "incorrect selection" or "wrong click".
     - Keep the response to 1 or 2 short sentences.
     - Give exactly one concrete next step.
-    - Do not mention internal scores.
+    - NEVER mention scores, metrics, signals, or analysis.
+    - NEVER mention "frustration", "attention", "trigger", or "score".
+    - DO NOT explain why the suggestion is given.
+    - ONLY give the next action the user should take.
+    - Do not include any explanation, reasoning, or observations.
+    - Output only the instruction.
 
     Return only the assistant message.
     """
