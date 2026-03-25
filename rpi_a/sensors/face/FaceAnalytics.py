@@ -38,8 +38,8 @@ _POSE_SMOOTH_N   = 10
 
 # Brow / emotion smoothing + thresholds
 _BROW_SMOOTH_N        = 15
-_CONFUSED_THRESHOLD   = 0.15
-_FRUSTRATED_THRESHOLD = 0.35
+_CONFUSED_THRESHOLD   = 0.25
+_FRUSTRATED_THRESHOLD = 0.45
  
 # Normal blink rate range (blinks/min)
 _NORMAL_BLINK_MIN = 12.0
@@ -92,6 +92,7 @@ def _get_eye_squint(landmarks):
     
 def _classify_emotion(brow_delta, mouth_delta):
     frustration_signal = brow_delta * 0.7 + max(-mouth_delta, 0) * 0.3
+    # print(f"  [DEBUG] brow_delta:{brow_delta:.3f} mouth_delta:{mouth_delta:.3f} signal:{frustration_signal:.3f}")
     if frustration_signal >= _FRUSTRATED_THRESHOLD:
         return "FRUSTRATED", frustration_signal
     elif frustration_signal >= _CONFUSED_THRESHOLD:
