@@ -18,6 +18,9 @@ trigger_engine = TriggerEngine()
 # delay assistant from reopening when chat is manually closed
 assistant_dismissed_until = 0
 
+# for state tracking
+last_seen_task = None
+
 latest_ui_state = {
     "assistant_open": False,
     "assistant_message": "",
@@ -37,12 +40,16 @@ llm_state = {
     "last_message": "",
 }
 
+
 def record_llm_event(role: str, message: str):
     with llm_state_lock:
         llm_state["llm_activated"] = True
         llm_state["last_role"] = role
         llm_state["last_message"] = message
+
+
 # =======  END: LLM State for MQTT =============
+
 
 # Ensure assistant doesn't run on page 1 & 4
 def is_assistant_allowed(summary: dict) -> bool:
@@ -160,10 +167,10 @@ def reset_assistant_for_new_task():
     latest_ui_state["score"] = 0.0
     latest_ui_state["reason"] = None
 
-    with llm_state_lock:
-        llm_state["llm_activated"] = False
-        llm_state["last_role"] = None
-        llm_state["last_message"] = ""
+    # with llm_state_lock:
+    #     llm_state["llm_activated"] = False
+    #     llm_state["last_role"] = None
+    #     llm_state["last_message"] = ""
 
 
 def reevaluate_assistant():
@@ -214,7 +221,7 @@ def reevaluate_assistant():
             "assistant_message", ""
         ).strip() or build_fallback_hint(summary)
 
-        record_llm_event("assistant", reply_text) # For MQTT dashboard
+        record_llm_event("assistant", reply_text)  # For MQTT dashboard
 
         latest_ui_state["assistant_open"] = True
         latest_ui_state["proactive_message"] = reply_text
@@ -250,12 +257,12 @@ def page4():
 
 @app.route("/api/browser_event", methods=["POST"])
 def browser_event():
+    global last_seen_task
+
     data = request.get_json(force=True) or {}
     data["ts"] = time.time()
 
     event_type = data.get("type")
-
-    previous_task = context_buffer.summarize().get("task", "unknown")
 
     # Convert frontend events into backend events
     if event_type == "task_submit_result":
@@ -267,10 +274,17 @@ def browser_event():
     else:
         context_buffer.add_event(data)
 
+    # Handle task changes using explicit tracking
     if event_type == "task_state":
         new_task = data.get("task", "unknown")
-        if new_task != previous_task:
-            reset_assistant_for_new_task()
+
+        if new_task and new_task != last_seen_task:
+            # Avoid resetting on the very first task_state i.e. None to "Start Session"
+            # Task transitions should work for other pages since the starting state is not None
+            if last_seen_task is not None:
+                reset_assistant_for_new_task()
+
+            last_seen_task = new_task
 
     # Manual help
     if event_type == "manual_help_open":
@@ -289,7 +303,7 @@ def browser_event():
             "assistant_message", ""
         ).strip() or build_fallback_hint(summary)
 
-        record_llm_event("assistant", reply_text) # For MQTT dashboard
+        record_llm_event("assistant", reply_text)  # For MQTT dashboard
 
         latest_ui_state["assistant_open"] = True
         latest_ui_state["nudge"] = False
@@ -343,7 +357,7 @@ def ui_state():
 @app.route("/api/chat_reply", methods=["POST"])
 def chat_reply():
     user_msg = request.get_json().get("message", "")
-    record_llm_event("user", user_msg) # For MQTT dashboard
+    record_llm_event("user", user_msg)  # For MQTT dashboard
     summary = context_buffer.summarize()
     summary["user_message"] = user_msg
 
@@ -359,7 +373,7 @@ def chat_reply():
 
     llm_reply = request_assistance(summary, mode="chat")
     reply_text = llm_reply.get("assistant_message", "No response.")
-    record_llm_event("assistant", reply_text) # For MQTT dashboard
+    record_llm_event("assistant", reply_text)  # For MQTT dashboard
 
     latest_ui_state["assistant_open"] = True
     latest_ui_state["chat_message"] = reply_text
