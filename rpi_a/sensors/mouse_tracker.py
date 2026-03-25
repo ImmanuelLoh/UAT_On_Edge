@@ -88,7 +88,7 @@ class MouseTracker:
             time.sleep(self.interval)
             
             current_stat = self.generate_metrics()
-            print(current_stat)
+            # print(current_stat)
 
             self.current_click_count = 0
             self.current_quadrant_count = []
