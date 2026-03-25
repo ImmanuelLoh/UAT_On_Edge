@@ -21,10 +21,10 @@ class CameraStream:
             ["v4l2-ctl", "--device=/dev/video0", "--set-ctrl=auto_exposure=1"]
         )
         subprocess.run(
-            ["v4l2-ctl", "--device=/dev/video0", "--set-ctrl=gain=120"]
+            ["v4l2-ctl", "--device=/dev/video0", "--set-ctrl=gain=95"]
         )  # Amplifies the signal (Add brightness, grains/noise)
         subprocess.run(
-            ["v4l2-ctl", "--device=/dev/video0", "--set-ctrl=brightness=160"]
+            ["v4l2-ctl", "--device=/dev/video0", "--set-ctrl=brightness=150"]
         )  # Shifts pixel values up/down
 
         self.cap = cv2.VideoCapture(src, cv2.CAP_V4L2)
