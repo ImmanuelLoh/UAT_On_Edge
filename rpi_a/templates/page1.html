@@ -45,10 +45,10 @@
                 </a>
             </div>
 
-            <div id="nudge" class="nudge hidden">Need help?</div>
+            <!-- <div id="nudge" class="nudge hidden">Need help?</div> -->
         </main>
 
-        <aside id="chat-widget" class="chat-panel hidden">
+        <!-- <aside id="chat-widget" class="chat-panel hidden">
             <div class="chat-header">
                 <span>Assistant</span>
                 <button id="close-chat">X</button>
@@ -58,10 +58,22 @@
                 <input id="chat-input" placeholder="Type your question..." />
                 <button id="send-chat">Send</button>
             </div>
-        </aside>
+        </aside> -->
     </div>
 
-    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+    <!-- <script src="{{ url_for('static', filename='js/chat.js') }}"></script> -->
+    <script>
+    window.addEventListener("load", () => {
+        fetch("/api/browser_event", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                type: "task_state",
+                task: "End Screen"
+            })
+        });
+    });
+    </script>
 </body>
 
 </html>

@@ -29,26 +29,13 @@ latest_ui_state = {
 }
 
 
+# Ensure assistant doesn't run on page 1 & 4
+def is_assistant_allowed(summary: dict) -> bool:
+    return summary.get("task") in ["Click the Color", "Number Selections"]
+
+
 def get_page_context(summary: dict) -> dict:
     task = summary.get("task", "unknown")
-
-    if task == "Start Session":
-        return {
-            "page_name": "Page 1 - Task 1",
-            "goal": "Click the Start button to begin the session.",
-            "instruction_text": "Click the Start button to begin the session.",
-            "visible_elements": [
-                {"type": "button", "label": "Start button", "position": "center"}
-            ],
-            "allowed_elements": ["Start button"],
-            "forbidden_inferences": [
-                "forms",
-                "checkmarks",
-                "color choices",
-                "number tiles",
-            ],
-            "hint_policy": "Keep the hint short and mention only the Start button.",
-        }
 
     if task == "Click the Color":
         return {
@@ -146,6 +133,7 @@ def build_fallback_hint(summary: dict) -> str:
 
     return "It looks like you may be stuck. Try the current task again carefully."
 
+
 # Helper to reset state in LLM assistant
 def reset_assistant_for_new_task():
     latest_ui_state["assistant_open"] = False
@@ -157,10 +145,30 @@ def reset_assistant_for_new_task():
     latest_ui_state["score"] = 0.0
     latest_ui_state["reason"] = None
 
+
 def reevaluate_assistant():
     global assistant_dismissed_until
 
     summary = context_buffer.summarize()
+
+    if not is_assistant_allowed(summary):
+        latest_ui_state["assistant_open"] = False
+        latest_ui_state["assistant_message"] = ""
+        latest_ui_state["proactive_message"] = ""
+        latest_ui_state["chat_message"] = ""
+        latest_ui_state["nudge"] = False
+        latest_ui_state["chat_mode"] = False
+        latest_ui_state["score"] = 0.0
+        latest_ui_state["reason"] = None
+
+        return {
+            "triggered": False,
+            "nudged": False,
+            "score": 0.0,
+            "reason": "assistant_disabled_for_page",
+            "cooldown": False,
+        }
+
     result = trigger_engine.evaluate(summary)
 
     # Turn nudge on (do not turn it off automatically)
@@ -179,7 +187,7 @@ def reevaluate_assistant():
         summary = context_buffer.summarize()
         summary["page_context"] = get_page_context(summary)
         summary["trigger_reason"] = latest_ui_state.get("reason")
-        # summary["trigger_score"] = latest_ui_state.get("score")
+        # summary["trigger_score"] = latest_ui_state.get("score") # Don't push score to LLM (use it as a trigger ONLY)
 
         llm_reply = request_assistance(summary, mode="proactive")
         reply_text = llm_reply.get(
@@ -226,7 +234,6 @@ def browser_event():
 
     previous_task = context_buffer.summarize().get("task", "unknown")
 
-
     # Convert frontend events into backend events
     if event_type == "task_submit_result":
         if data.get("result") == "incorrect":
@@ -236,7 +243,7 @@ def browser_event():
         # Don't store the original event
     else:
         context_buffer.add_event(data)
-    
+
     if event_type == "task_state":
         new_task = data.get("task", "unknown")
         if new_task != previous_task:
@@ -247,6 +254,10 @@ def browser_event():
 
         # Inject context into LLM Payload
         summary = context_buffer.summarize()
+
+        if not is_assistant_allowed(summary):
+            return jsonify({"ok": True, "assistant_message": ""})
+
         summary["page_context"] = get_page_context(summary)
         summary["trigger_reason"] = latest_ui_state.get("reason")
 
@@ -309,6 +320,9 @@ def chat_reply():
     user_msg = request.get_json().get("message", "")
     summary = context_buffer.summarize()
     summary["user_message"] = user_msg
+
+    if not is_assistant_allowed(summary):
+        return jsonify({"assistant_message": ""})
 
     # Inject context into LLM payload
     summary["page_context"] = get_page_context(summary)
