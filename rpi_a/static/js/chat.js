@@ -93,6 +93,13 @@ sendChat.addEventListener("click", async () => {
     }
 });
 
+chatInput.addEventListener("keydown", async (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendChat.click();
+    }
+});
+
 closeChat.addEventListener("click", async (e) => {
     e.stopPropagation();
     await fetch("/api/close_chat", { method: "POST" });

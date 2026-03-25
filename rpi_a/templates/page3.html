@@ -169,13 +169,25 @@
         // 2. Visual toggle for "clickable box" effect
         function toggleHighlight(checkbox, labelId) {
             const label = document.getElementById(labelId);
+            const value = checkbox.value;
+
             if (checkbox.checked) {
                 label.classList.add('selected');
             } else {
                 label.classList.remove('selected');
             }
 
-            // Enable button only if 3 boxes are checked
+            fetch("/api/browser_event", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    type: "task_selection",
+                    task: "Number Selections",
+                    target: `number_${value}`,
+                    checked: checkbox.checked
+                })
+            });
+
             const checkedCount = document.querySelectorAll('.task-checkbox:checked').length;
             document.getElementById('btn-submit-selection').disabled = (checkedCount !== 3);
         }
@@ -183,15 +195,49 @@
         // 3. Final Validation
         function validateSubmission(event) {
             event.preventDefault();
+
             const selected = Array.from(document.querySelectorAll('.task-checkbox:checked'))
                 .map(cb => parseInt(cb.value));
 
-            // Check if selected matches required (sorting ensures order doesn't matter)
-            const isCorrect = selected.length === 3 && selected.every(n => requiredNumbers.includes(n));
+            fetch("/api/browser_event", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    type: "task_submit_attempt",
+                    task: "Number Selections",
+                    selected_numbers: selected
+                })
+            });
+
+            const isCorrect =
+                selected.length === 3 &&
+                selected.every(n => requiredNumbers.includes(n));
 
             if (isCorrect) {
+                fetch("/api/browser_event", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        type: "task_submit_result",
+                        task: "Number Selections",
+                        result: "correct",
+                        selected_numbers: selected
+                    })
+                });
+
                 window.location.href = "/complete";
             } else {
+                fetch("/api/browser_event", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        type: "task_submit_result",
+                        task: "Number Selections",
+                        result: "incorrect",
+                        selected_numbers: selected
+                    })
+                });
+
                 const error = document.getElementById('error-msg');
                 error.style.visibility = 'visible';
                 setTimeout(() => { error.style.visibility = 'hidden'; }, 2500);
@@ -202,6 +248,19 @@
     </script>
 
     <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+    
+    <script>
+window.addEventListener("load", () => {
+    fetch("/api/browser_event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            type: "task_state",
+            task: "Number Selections"
+        })
+    });
+});
+</script>
 </body>
 
 </html>
