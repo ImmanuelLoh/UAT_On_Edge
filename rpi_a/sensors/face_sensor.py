@@ -100,57 +100,57 @@ class FaceSensor:
         while time.time() - warmup_start < _WARMUP_SECS:
             self._stream.read()
             
+        cv2.namedWindow("UAT Calibration", cv2.WINDOW_NORMAL)
+        cv2.setWindowProperty("UAT Calibration", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
         if self._debug:
-            # PHASE 1: Gaze calibration 
+            # PHASE 1: Gaze calibration
             print(f"[FaceSensor] Phase 1: Gaze calibration - follow the dots, press SPACE per point\n")
             while not self._eye_analytics.calibration_done:
                 ret, frame = self._stream.read()
                 if not ret:
                     continue
-    
+
                 h, w = frame.shape[:2]
                 rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    
+
                 results = self._face_mesh.process(rgb)
                 frame = cv2.flip(frame, 1)
-    
+
                 # Init HeadPose on first frame
                 if self._head_pose is None:
                     self._head_pose = HeadPose(w, h)
-    
+
                 key = cv2.waitKey(1) & 0xFF
                 space_pressed = key == ord(" ")
-    
+
                 if results.multi_face_landmarks:
                     lm = results.multi_face_landmarks[0].landmark
                     pitch, yaw, roll, _, _ = self._head_pose.estimate(lm)
                     status = self._eye_analytics.update_calibration(
                         lm, w, h, yaw, pitch, space_pressed
                     )
-    
+
                 # Only show dot screen during gaze calibration
                 calib_canvas = self._eye_analytics.draw_calibration_screen()
-                cv2.imshow("Gaze Calibration", calib_canvas)
-    
+                cv2.imshow("UAT Calibration", calib_canvas)
+
                 if key == ord("q"):
                     print("[FaceSensor] Quit during gaze calibration.")
                     self.stop()
                     raise SystemExit
-    
-            cv2.destroyWindow("Gaze Calibration")
+
             print("[FaceSensor] Gaze calibration complete.\n")
-        
-        
+
+
         # PHASE 2: Face analytics calibration
         # Ensure HeadPose was initialised during Phase 1
         if self._head_pose is None:
             ret, frame = self._stream.read()
             h, w = frame.shape[:2]
             self._head_pose = HeadPose(w, h)
-    
+
         print(f"[FaceSensor] Phase 2: Face calibration - relax face, look at camera ({_FACE_CALIB_SECS}s)\n")
-        cv2.namedWindow("UAT", cv2.WINDOW_NORMAL)
-        cv2.setWindowProperty("UAT", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         face_calib_done = False
         face_calib_start = time.time()
         remaining = _FACE_CALIB_SECS
@@ -197,7 +197,7 @@ class FaceSensor:
                 cv2.putText(canvas, text2,
                             (self._screen_w//2 - t2_w//2, self._screen_h//2 + 20),
                             _FONT, 0.8, (200, 200, 200), 2)
-                cv2.imshow("UAT", canvas)
+                cv2.imshow("UAT Calibration", canvas)
  
             if key == ord("q"):
                 print("[FaceSensor] Quit during face calibration.")
@@ -205,7 +205,7 @@ class FaceSensor:
                 raise SystemExit
         self._analytics_start = time.time()
         self._last_frame_time = time.time()
-        cv2.destroyWindow("UAT")
+        cv2.destroyWindow("UAT Calibration")
         print("\n[FaceSensor] Calibration complete. Ready for analytics.\n")
             
     # Per-frame processing after calibration

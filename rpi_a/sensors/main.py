@@ -7,14 +7,17 @@ Current:
 """
  
 import os
+import sys
 import time
 import subprocess
 import json
 import psutil
 from collections import Counter
 import cv2
- 
-from face_sensor import FaceSensor
+
+# Allow `from sensors.face_sensor import ...` style imports (relative imports inside face_sensor.py)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from sensors.face_sensor import FaceSensor
  
 # ---------------------------------------------------------------------------
 # CONFIG
