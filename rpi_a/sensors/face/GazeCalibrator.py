@@ -235,9 +235,19 @@ class GazeCalibrator:
             center_zone["gaze_y_min"] <= fused_y <= center_zone["gaze_y_max"]):
             quadrant = "CENTER"
         else:
-            h = "LEFT" if fused_x < self.boundaries["x_split"] else "RIGHT"
-            v = "TOP" if fused_y < self.boundaries["y_split"] else "BOTTOM"
-            quadrant = f"{v}-{h}"        
+            # Nearest-neighbour: pick the corner whose calibrated center is closest.
+            # This handles asymmetric iris displacement ranges (e.g. bottom-left
+            # produces less downward Y signal when the eye is already at a horizontal
+            # extreme), which a single global y_split threshold cannot handle.
+            corners = ["TOP-LEFT", "TOP-RIGHT", "BOTTOM-LEFT", "BOTTOM-RIGHT"]
+            best, best_dist = None, float("inf")
+            for label in corners:
+                cx, cy = self.collected_gaze[label]
+                d = (fused_x - cx) ** 2 + (fused_y - cy) ** 2
+                if d < best_dist:
+                    best_dist = d
+                    best = label
+            quadrant = best
 
 
         px = int(np.interp(fused_x, gaze_x_range, [0, self.screen_w]))
