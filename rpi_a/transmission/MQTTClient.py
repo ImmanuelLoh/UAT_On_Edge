@@ -53,7 +53,7 @@ class MQTTClient:
             print(f"Failed to publish message to {self.raw_topic}")
             print(f"Error code: {result.rc}")
         else:
-            print(f"Published message to {self.topic}: {payload}")
+            print(f"Published message to {self.raw_topic}: {payload}")
 
     def publish_summary(self, summary_payload, qos=1):
         """Publish end-of-session summary to uat/summary and mark session inactive."""
