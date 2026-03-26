@@ -41,7 +41,7 @@ _FONT = cv2.FONT_HERSHEY_SIMPLEX
 
 WARMUP = 5     # benchmark warmup after calibration (s)
 MEASURE = 30    # benchmark measurement window (s)
-DEBUG = False
+DEBUG = True   # show debug info and visualization during calibration and benchmarking
 
 
 # ---------------------------------------------------------------------------
