@@ -16,6 +16,13 @@
 
 MODE=$1
 
+# Resolve venv Python so sudo doesn't lose the virtualenv
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+PYTHON="$REPO_ROOT/venv/bin/python3"
+if [ ! -f "$PYTHON" ]; then
+    PYTHON="$(which python3)"
+fi
+
 PERF_EVENTS="cycles,instructions,cache-references,cache-misses,branch-misses"
 
 mkdir -p results
@@ -36,7 +43,7 @@ case "$MODE" in
     echo ""
     perf stat \
       -e $PERF_EVENTS \
-      -- python3 rpi_a/benchmarks/face_sensor_before.py \
+      -- "$PYTHON"rpi_a/benchmarks/face_sensor_before.py \
       2>&1 | tee results/perf_before.txt
     echo ""
     echo "Results saved to results/perf_before.txt"
@@ -55,7 +62,7 @@ case "$MODE" in
     echo ""
     perf stat \
       -e $PERF_EVENTS \
-      -- python3 rpi_a/benchmarks/face_sensor_after.py \
+      -- "$PYTHON"rpi_a/benchmarks/face_sensor_after.py \
       2>&1 | tee results/perf_after.txt
     echo ""
     echo "Results saved to results/perf_after.txt"
@@ -82,7 +89,7 @@ case "$MODE" in
     echo ""
     perf stat \
       -e $PERF_EVENTS \
-      -- python3 rpi_a/benchmarks/tracker_bridge_benchmark.py "$RECEIVER_IP" "$LABEL" \
+      -- "$PYTHON"rpi_a/benchmarks/tracker_bridge_benchmark.py "$RECEIVER_IP" "$LABEL" \
       2>&1 | tee results/perf_e2e.txt
     echo ""
     echo "Results saved to results/perf_e2e.txt"
