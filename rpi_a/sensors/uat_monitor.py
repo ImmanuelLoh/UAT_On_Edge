@@ -45,6 +45,9 @@ class UATTask:
             "className": element["className"]
         }
 
+        if clicked_element["tag"] == "INPUT" and clicked_element["className"] == "task-checkbox":
+            return
+
         # Check a Empty ID
         element_id = element["id"]
         if element_id == "":
