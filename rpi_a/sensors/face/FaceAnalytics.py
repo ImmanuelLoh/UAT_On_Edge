@@ -222,7 +222,6 @@ class FaceAnalytics:
             if self._eye_closed and self._consec_frames >= _BLINK_CONSEC_FRAMES:
                 self._blink_count += 1
                 self._blink_timestamps.append(elapsed)
-                print(f"  BLINK #{self._blink_count} at {elapsed:.1f}s (min EAR: {self._min_ear_val:.3f})")
             self._consec_frames = 0
             self._eye_closed = False
             self._min_ear_val = 1.0
