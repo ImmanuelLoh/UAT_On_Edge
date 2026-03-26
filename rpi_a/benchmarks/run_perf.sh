@@ -23,9 +23,10 @@ if [ ! -f "$PYTHON" ]; then
     PYTHON="$(which python3)"
 fi
 
-PERF_EVENTS="cycles,instructions,cache-references,cache-misses,branch-misses"
+RESULTS_DIR="$REPO_ROOT/rpi_a/benchmarks/results"
+mkdir -p "$RESULTS_DIR"
 
-mkdir -p results
+PERF_EVENTS="cycles,instructions,cache-references,cache-misses,branch-misses"
 
 case "$MODE" in
 
@@ -43,10 +44,10 @@ case "$MODE" in
     echo ""
     perf stat \
       -e $PERF_EVENTS \
-      -- "$PYTHON"rpi_a/benchmarks/face_sensor_before.py \
-      2>&1 | tee results/perf_before.txt
+      -- "$PYTHON" rpi_a/benchmarks/face_sensor_before.py \
+      2>&1 | tee "$RESULTS_DIR/perf_before.txt"
     echo ""
-    echo "Results saved to results/perf_before.txt"
+    echo "Results saved to $RESULTS_DIR/perf_before.txt"
     ;;
 
   # ---------------------------------------------------------------------------
@@ -62,10 +63,10 @@ case "$MODE" in
     echo ""
     perf stat \
       -e $PERF_EVENTS \
-      -- "$PYTHON"rpi_a/benchmarks/face_sensor_after.py \
-      2>&1 | tee results/perf_after.txt
+      -- "$PYTHON" rpi_a/benchmarks/face_sensor_after.py \
+      2>&1 | tee "$RESULTS_DIR/perf_after.txt"
     echo ""
-    echo "Results saved to results/perf_after.txt"
+    echo "Results saved to $RESULTS_DIR/perf_after.txt"
     ;;
 
   # ---------------------------------------------------------------------------
@@ -89,10 +90,10 @@ case "$MODE" in
     echo ""
     perf stat \
       -e $PERF_EVENTS \
-      -- "$PYTHON"rpi_a/benchmarks/tracker_bridge_benchmark.py "$RECEIVER_IP" "$LABEL" \
-      2>&1 | tee results/perf_e2e.txt
+      -- "$PYTHON" rpi_a/benchmarks/tracker_bridge_benchmark.py "$RECEIVER_IP" "$LABEL" \
+      2>&1 | tee "$RESULTS_DIR/perf_e2e.txt"
     echo ""
-    echo "Results saved to results/perf_e2e.txt"
+    echo "Results saved to $RESULTS_DIR/perf_e2e.txt"
     ;;
 
   *)
