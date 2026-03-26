@@ -129,10 +129,12 @@ class UATMonitor:
         
         for task in self.tasks:
             metrics["tasks"][task.task_name] =  {
-                "isCompleted": task.is_completed,
-                "startTime": task.start_time,
-                "endTime": task.end_time,
-                "totalDuration": task.total_duration,
+                # "isCompleted": task.is_completed,
+                # "startTime": task.start_time,
+                # "endTime": task.end_time,
+                # "totalDuration": task.total_duration,
+                "total_correct_click": len(task.correct_clicks),
+                "total_wrong_click": len(task.wrong_clicks),
             }
 
         # prev_task_index = self.active_task_index - 1 

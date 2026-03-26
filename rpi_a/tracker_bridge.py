@@ -91,8 +91,16 @@ class SessionRecorder:
             mouse_agg["mouse_status_counts"][ms] = mouse_agg["mouse_status_counts"].get(ms, 0) + 1
 
         # Browser aggregates
-        total_wrong = max((b.get("wrong_click", 0) for b in browser_snaps), default=0)
-        total_correct = max((b.get("correct_click", 0) for b in browser_snaps), default=0)
+        last_browser_snap = browser_snaps[-1]
+        total_correct = 0
+        total_wrong = 0
+        tasks = last_browser_snap["tasks"]
+        for task in tasks:
+            total_correct += tasks[task]["total_correct_click"]
+            total_wrong += tasks[task]["total_wrong_click"]
+
+        # total_wrong = max((b.get("wrong_click", 0) for b in browser_snaps), default=0)
+        # total_correct = max((b.get("correct_click", 0) for b in browser_snaps), default=0)
         browser_agg = {
             "total_wrong_clicks": total_wrong,
             "total_correct_clicks": total_correct,
@@ -239,6 +247,10 @@ def uat_bridge_loop():
         try:
             metrics = uat_monitor.generate_metrics()
             current = metrics["currentTask"]
+            tasks = metrics["tasks"]
+
+            first_task = next(iter(tasks))
+            tasks["tasks"].pop(first_task)
 
             snapshot = (
                 current.get("taskName"),
@@ -251,6 +263,7 @@ def uat_bridge_loop():
                 "task": current.get("taskName", "unknown"),
                 "correct_click": current.get("correct_click", 0),
                 "wrong_click": current.get("wrong_click", 0),
+                "tasks": tasks
             }
 
             update_browser_state(browser_payload)
