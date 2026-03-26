@@ -48,6 +48,11 @@ def record_llm_event(role: str, message: str):
         llm_state["last_message"] = message
 # =======  END: LLM State for MQTT =============
 
+# ============= Session Complete Signal =============
+session_complete_lock = threading.Lock()
+session_complete_flag = {"fired": False}
+# ===================================================
+
 # Ensure assistant doesn't run on page 1 & 4
 def is_assistant_allowed(summary: dict) -> bool:
     return summary.get("task") in ["Click the Color", "Number Selections"]
@@ -243,21 +248,18 @@ def page3():
         # Logic to check if exactly 3 are selected
         selected = request.form.getlist("options")
         if len(selected) == 3:
-            # UAT is complete — notify tracker_bridge before redirecting
-            try:
-                requests.post(
-                    "http://127.0.0.1:5000/api/session_complete",
-                    json={"source": "page3_submit"},
-                    timeout=1.0,
-                )
-            except Exception as e:
-                print("[app.py] Could not fire session_complete:", e)
             return redirect(url_for("page4"))
     return render_template("page3.html")
 
 
 @app.route("/complete")
 def page4():
+    # UAT is complete — notify tracker_bridge to send summary details
+    try:
+        with session_complete_lock:
+            session_complete_flag["fired"] = True
+    except Exception as e:
+        print("[app.py] Could not set session complete:", e)
     return render_template("page4.html")
 
 
@@ -406,17 +408,6 @@ def get_llm_state():
     with llm_state_lock:
         return jsonify(dict(llm_state))
 
-
-# ============= Session Complete Signal =============
-session_complete_lock = threading.Lock()
-session_complete_flag = {"fired": False}
-
-@app.route("/api/session_complete", methods=["POST"])
-def session_complete():
-    with session_complete_lock:
-        session_complete_flag["fired"] = True
-    print("[app.py] Session complete signal received.")
-    return jsonify({"ok": True})
 
 @app.route("/api/session_complete_status")
 def session_complete_status():
