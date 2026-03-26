@@ -267,10 +267,10 @@ if __name__ == "__main__":
 
             face_sensor._last_frame_time = time.perf_counter()
 
-            if DEBUG:
-                cv2.putText(frame, f"Gaze: {gaze_quadrant}", (10, 28), _FONT, 0.6, (0, 255, 255), 2)
-                cv2.putText(frame, f"Emotion: {face_result['emotion']}", (10, 55), _FONT, 0.6, (0, 255, 0), 2)
-                cv2.putText(frame, f"[BEFORE] blocking cap.read()", (10, 82), _FONT, 0.5, (0, 100, 255), 2)
+            # if DEBUG:
+            #     cv2.putText(frame, f"Gaze: {gaze_quadrant}", (10, 28), _FONT, 0.6, (0, 255, 255), 2)
+            #     cv2.putText(frame, f"Emotion: {face_result['emotion']}", (10, 55), _FONT, 0.6, (0, 255, 0), 2)
+            #     cv2.putText(frame, f"[BEFORE] blocking cap.read()", (10, 82), _FONT, 0.5, (0, 100, 255), 2)
 
         # --- Total ---
         t_frame_end  = time.perf_counter()
@@ -297,8 +297,8 @@ if __name__ == "__main__":
             if (t_frame_end - t_measure_start) >= MEASURE:
                 break
 
-        if DEBUG:
-            cv2.imshow("Benchmark: BEFORE (blocking cap.read)", frame)
+        # if DEBUG:
+        #     cv2.imshow("Benchmark: BEFORE (blocking cap.read)", frame)
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
