@@ -57,7 +57,6 @@ class SessionRecorder:
         face_snaps   = [s["face"]   for s in snapshots if s.get("face")]
         mouse_snaps  = [s["mouse"]  for s in snapshots if s.get("mouse")]
         browser_snaps = [s["browser"] for s in snapshots if s.get("browser")]
-        llm_snaps    = [s["llm"]    for s in snapshots if s.get("llm")]
 
         # Face aggregates
         detected = [f for f in face_snaps if f.get("face_detected")]
@@ -100,14 +99,17 @@ class SessionRecorder:
         }
 
         # LLM aggregates
-        llm_activations = [s for s in llm_snaps if s.get("llm_activated")]
-        assistant_messages = [
-            s["last_message"] for s in llm_activations
-            if s.get("last_role") == "assistant" and s.get("last_message")
-        ]
+        llm_activation_by_task = {}
+
+        for snap in snapshots:
+            task = snap.get("browser", {}).get("task", "unknown")
+            llm  = snap.get("llm", {})
+
+            if llm.get("llm_activated"):
+                llm_activation_by_task[task] = True
+
         llm_agg = {
-            "total_activations": len(llm_activations),
-            "assistant_messages": assistant_messages,
+            "activation_by_task": llm_activation_by_task,  # e.g. {"Number Selection": True}
         }
 
         return {
