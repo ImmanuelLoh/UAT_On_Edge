@@ -23,37 +23,27 @@ const db = admin.firestore();
 const app = express();
 app.use(cors());
 app.use(express.json());
-
-// Serve the dashboard HTML from same folder
 app.use(express.static(__dirname));
 
 const LAB_IDS = ["Lab1", "Lab2", "Lab3"];
 
-// Known computer IDs per lab.
-// Update these lists if lab layout changes.
 const LAB_COMPUTERS = {
   Lab1: ["Computer_1", "Computer_2", "Computer_3"],
   Lab2: ["Computer1", "Computer2", "Computer3"],
   Lab3: ["Computer1", "Computer2", "Computer3"],
 };
 
-// ── Helper: get known computers for a lab ────────────────────────────────────
-function getKnownComputers(labId) {
-  return LAB_COMPUTERS[labId] || [];
-}
+// ─────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────
 
-// ── Helper: get latest session for a computer ────────────────────────────────
-// Sessions are stored at:
-//   /{labId}/{computerId}/sessions/{sessionId}
-// Session IDs are timestamp-like strings, so ordering by document ID
-// descending should return the newest one.
 async function getLatestSession(labId, computerId) {
-  const sessionsRef = db
+  const ref = db
     .collection(labId)
     .doc(computerId)
     .collection("sessions");
 
-  const snap = await sessionsRef
+  const snap = await ref
     .orderBy(admin.firestore.FieldPath.documentId(), "desc")
     .limit(1)
     .get();
@@ -61,94 +51,70 @@ async function getLatestSession(labId, computerId) {
   if (snap.empty) return null;
 
   const doc = snap.docs[0];
-  return {
-    sessionId: doc.id,
-    ...doc.data(),
-  };
+  return { sessionId: doc.id, ...doc.data() };
 }
 
-// ── Helper: get latest tick from latest chunk ────────────────────────────────
-// Event chunks are stored at:
-//   /{labId}/{computerId}/sessions/{sessionId}/events/{chunkId}
-// Example chunk IDs: chunk_00, chunk_01, ...
-// Read the latest chunk doc, then take the last tick from its ticks array.
 async function getLatestTick(labId, computerId, sessionId) {
-  const eventsRef = db
+  const ref = db
     .collection(labId)
     .doc(computerId)
     .collection("sessions")
     .doc(sessionId)
     .collection("events");
 
-  const snap = await eventsRef
+  const snap = await ref
     .orderBy(admin.firestore.FieldPath.documentId(), "desc")
     .limit(1)
     .get();
 
   if (snap.empty) return null;
 
-  const latestChunkDoc = snap.docs[0];
-  const chunkData = latestChunkDoc.data() || {};
-  const ticks = Array.isArray(chunkData.ticks) ? chunkData.ticks : [];
+  const data = snap.docs[0].data();
+  const ticks = data.ticks || [];
 
-  if (ticks.length === 0) return null;
-
-  return ticks[ticks.length - 1];
+  return ticks.length ? ticks[ticks.length - 1] : null;
 }
 
-// ── Helper: build one computer summary ───────────────────────────────────────
-async function buildComputerSummary(labId, computerId) {
-  try {
-    const session = await getLatestSession(labId, computerId);
+// ─────────────────────────────────────────────────────────────
+// LIVE DASHBOARD
+// ─────────────────────────────────────────────────────────────
 
-    if (!session) {
-      return {
-        computerId,
-        sessionId: null,
-        sessionData: null,
-        tick: null,
-      };
-    }
-
-    const { sessionId, ...sessionData } = session;
-    const tick = await getLatestTick(labId, computerId, sessionId);
-
-    return {
-      computerId,
-      sessionId,
-      sessionData,
-      tick,
-    };
-  } catch (err) {
-    console.warn(`Skipping ${labId}/${computerId}: ${err.message}`);
-    return {
-      computerId,
-      sessionId: null,
-      sessionData: null,
-      tick: null,
-      error: err.message,
-    };
-  }
-}
-
-// ── GET /api/labs — returns all labs and their computers ─────────────────────
 app.get("/api/labs", async (req, res) => {
   try {
     const result = [];
 
     for (const labId of LAB_IDS) {
-      const computerIds = getKnownComputers(labId);
-      if (computerIds.length === 0) continue;
+      const computerIds = LAB_COMPUTERS[labId] || [];
 
       const computers = [];
+
       for (const computerId of computerIds) {
-        const computerSummary = await buildComputerSummary(labId, computerId);
-        computers.push(computerSummary);
+        const session = await getLatestSession(labId, computerId);
+
+        if (!session) {
+          computers.push({
+            computerId,
+            state: "no_data",
+          });
+          continue;
+        }
+
+        const isCompleted = session.status === "completed";
+
+        const tick = isCompleted
+          ? null
+          : await getLatestTick(labId, computerId, session.sessionId);
+
+        computers.push({
+          computerId,
+          state: isCompleted ? "inactive" : "active",
+          sessionId: session.sessionId,
+          sessionData: session,
+          tick,
+        });
       }
 
-      const hasAnyData = computers.some(
-        (c) => c.sessionId || c.sessionData || c.tick
-      );
+      const hasAnyData = computers.some((c) => c.sessionId);
 
       if (hasAnyData) {
         result.push({ labId, computers });
@@ -161,75 +127,172 @@ app.get("/api/labs", async (req, res) => {
       fetchedAt: new Date().toISOString(),
     });
   } catch (err) {
-    console.error("Error in /api/labs:", err);
-    res.status(500).json({
-      ok: false,
-      error: err.message,
-    });
+    console.error(err);
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 
-// ── GET /api/lab/:labId — single lab ─────────────────────────────────────────
-app.get("/api/lab/:labId", async (req, res) => {
-  const { labId } = req.params;
+// ─────────────────────────────────────────────────────────────
+// HISTORY (COMPLETED SESSIONS)
+// ─────────────────────────────────────────────────────────────
+
+app.get("/api/history", async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit || "5");
+
+    const result = [];
+
+    for (const labId of LAB_IDS) {
+      const computers = [];
+
+      for (const computerId of LAB_COMPUTERS[labId] || []) {
+        const ref = db
+          .collection(labId)
+          .doc(computerId)
+          .collection("sessions");
+
+        const snap = await ref
+          .where("status", "==", "completed")
+          .orderBy("ended_at", "desc")
+          .limit(limit)
+          .get();
+
+        if (snap.empty) continue;
+
+        const sessions = snap.docs.map((d) => ({
+          sessionId: d.id,
+          ...d.data(),
+        }));
+
+        computers.push({ computerId, sessions });
+      }
+
+      if (computers.length) {
+        result.push({ labId, computers });
+      }
+    }
+
+    res.json({ ok: true, labs: result });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// SESSION TIMELINE (RECONSTRUCT FROM CHUNKS)
+// ─────────────────────────────────────────────────────────────
+
+app.get("/api/session/:labId/:computerId/:sessionId", async (req, res) => {
+  const { labId, computerId, sessionId } = req.params;
 
   try {
-    const computerIds = getKnownComputers(labId);
-    if (computerIds.length === 0) {
-      return res.json({
-        ok: true,
-        labId,
-        computers: [],
-        fetchedAt: new Date().toISOString(),
-      });
+    const sessionRef = db
+      .collection(labId)
+      .doc(computerId)
+      .collection("sessions")
+      .doc(sessionId);
+
+    const sessionSnap = await sessionRef.get();
+
+    if (!sessionSnap.exists) {
+      return res.status(404).json({ ok: false, error: "Session not found" });
     }
 
-    const computers = [];
-    for (const computerId of computerIds) {
-      const computerSummary = await buildComputerSummary(labId, computerId);
-      computers.push(computerSummary);
-    }
+    const sessionData = sessionSnap.data();
 
-    const hasAnyData = computers.some(
-      (c) => c.sessionId || c.sessionData || c.tick
-    );
+    // Chunks are stored as documents under the 'chunks' subcollection,
+    // each containing a 'ticks' array of snapshots in chronological order.
+    const chunksSnap = await sessionRef.collection("events").get();
+
+    const chunks = chunksSnap.docs
+      .map((d) => ({ chunkId: d.id, ...d.data() }))
+      .sort((a, b) => a.chunkId.localeCompare(b.chunkId));
+
+    // Reconstruct full timeline by concatenating ticks from each chunk in order.
+    let timeline = [];
+    for (const c of chunks) {
+      if (Array.isArray(c.ticks)) {
+        timeline = timeline.concat(c.ticks);
+      }
+    }
+    timeline.sort((a, b) => a.timestamp - b.timestamp);
+
+    // Use pre-computed aggregates from the session document — don't recalculate.
+    const aggregates = sessionData.aggregates || {};
+
+    // Build per-task summary from the timeline.
+    // Each task segment: first/last timestamp, max wrong_click, max correct_click, LLM activated.
+    const taskMap = new Map();
+    timeline.forEach((p) => {
+      const task = p.browser?.task || 'Unknown';
+      if (!taskMap.has(task)) {
+        taskMap.set(task, {
+          task,
+          startTs: p.timestamp,
+          endTs:   p.timestamp,
+          wrongClicks:   0,
+          correctClicks: 0,
+          llmActivated:  false,
+          peakFrustration: 0,
+          peakFrustrationTs: null,
+          firstLlmTs: null,
+        });
+      }
+      const t = taskMap.get(task);
+      t.endTs = p.timestamp;
+      // wrong_click and correct_click are cumulative counters — take the max seen
+      t.wrongClicks   = Math.max(t.wrongClicks,   Number(p.browser?.wrong_click   || 0));
+      t.correctClicks = Math.max(t.correctClicks, Number(p.browser?.correct_click || 0));
+      if (p.llm?.llm_activated && !t.firstLlmTs) {
+        t.llmActivated = true;
+        t.firstLlmTs   = p.timestamp;
+      }
+      const fr = Number(p.face?.frustration_score || 0);
+      if (fr > t.peakFrustration) {
+        t.peakFrustration   = fr;
+        t.peakFrustrationTs = p.timestamp;
+      }
+    });
+    const taskSummary = Array.from(taskMap.values()).map(t => ({
+      ...t,
+      durationSeconds: t.endTs - t.startTs,
+    }));
+
+    // Derive events: first LLM activation per task, peak frustration per task.
+    const events = [];
+    taskSummary.forEach((t) => {
+      if (t.peakFrustrationTs && t.peakFrustration >= 70) {
+        events.push({ timestamp: t.peakFrustrationTs, task: t.task, label: `Peak frustration: ${t.peakFrustration.toFixed(1)}`, type: 'frustration' });
+      }
+      if (t.firstLlmTs) {
+        events.push({ timestamp: t.firstLlmTs, task: t.task, label: 'LLM activated', type: 'llm' });
+      }
+    });
+    events.sort((a, b) => a.timestamp - b.timestamp);
 
     res.json({
       ok: true,
-      labId,
-      computers: hasAnyData ? computers : [],
-      fetchedAt: new Date().toISOString(),
+      sessionId,
+      started_at: sessionData.started_at || null,
+      ended_at:   sessionData.ended_at   || null,
+      meta:       sessionData.meta       || { total_snapshots: timeline.length },
+      aggregates,
+      chunks,
+      timeline,
+      taskSummary,
+      events,
     });
   } catch (err) {
-    console.error(`Error in /api/lab/${labId}:`, err);
-    res.status(500).json({
-      ok: false,
-      error: err.message,
-    });
+    console.error(err);
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 
-// ── Optional debug endpoint ──────────────────────────────────────────────────
-app.get("/api/debug/firestore", async (req, res) => {
-  try {
-    const collections = await db.listCollections();
-    res.json({
-      ok: true,
-      projectId: serviceAccount.project_id,
-      collections: collections.map((c) => c.id),
-    });
-  } catch (err) {
-    res.status(500).json({
-      ok: false,
-      error: err.message,
-    });
-  }
-});
+// ─────────────────────────────────────────────────────────────
 
-// ── Start ─────────────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 app.listen(PORT, () => {
-  console.log(`\nLabWatch proxy running at http://localhost:${PORT}`);
-  console.log(`Dashboard: http://localhost:${PORT}/lab_dashboard.html`);
-  console.log(`API:       http://localhost:${PORT}/api/labs\n`);
+  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`View dashboard on: http://localhost:${PORT}/lab_dashboard.html`)
 });
