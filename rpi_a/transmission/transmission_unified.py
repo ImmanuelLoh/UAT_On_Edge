@@ -50,7 +50,7 @@ def main():
 
             # MQTT sending
             payload = mqtt_client.build_payload(LABEL)
-            mqtt_client.publish(payload)
+            mqtt_client.publish_tick(payload)
 
             time.sleep(1)
 
