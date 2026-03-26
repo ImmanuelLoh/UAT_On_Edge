@@ -90,12 +90,28 @@ class SessionRecorder:
             ms = m.get("mouse_status", "unknown")
             mouse_agg["mouse_status_counts"][ms] = mouse_agg["mouse_status_counts"].get(ms, 0) + 1
 
-        # Browser aggregates
-        total_wrong = max((b.get("wrong_click", 0) for b in browser_snaps), default=0)
-        total_correct = max((b.get("correct_click", 0) for b in browser_snaps), default=0)
+        # Browser aggregates (Sum of Max per Task)
+        task_maxima = {} # Stores { "task_name": {"correct": X, "wrong": Y} }
+
+        for b in browser_snaps:
+            task_name = b.get("task", "unknown")
+            
+            # Initialize task entry if not seen yet
+            if task_name not in task_maxima:
+                task_maxima[task_name] = {"correct": 0, "wrong": 0}
+            
+            # Update with the highest value seen for this specific task
+            task_maxima[task_name]["correct"] = max(task_maxima[task_name]["correct"], b.get("correct_click", 0))
+            task_maxima[task_name]["wrong"] = max(task_maxima[task_name]["wrong"], b.get("wrong_click", 0))
+
+        # Sum the peaks from every task
+        total_correct = sum(data["correct"] for data in task_maxima.values())
+        total_wrong = sum(data["wrong"] for data in task_maxima.values())
+
         browser_agg = {
             "total_wrong_clicks": total_wrong,
             "total_correct_clicks": total_correct,
+            "task_breakdown": task_maxima 
         }
 
         # LLM aggregates
