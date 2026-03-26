@@ -119,6 +119,24 @@ class FaceSensor:
             h, w = frame.shape[:2]
             self._head_pose = HeadPose(w, h)
 
+        # Wait for SPACE before starting face baseline collection
+        print("[FaceSensor] Ready for Phase 2. Relax your face, look at the camera, then press SPACE to begin.\n")
+        while True:
+            canvas = np.zeros((self._screen_h, self._screen_w, 3), dtype=np.uint8)
+            msg = "Relax your face and look at the camera"
+            msg2 = "Press SPACE to begin face calibration"
+            (w1, _), _ = cv2.getTextSize(msg,  _FONT, 0.9, 2)
+            (w2, _), _ = cv2.getTextSize(msg2, _FONT, 0.7, 2)
+            cv2.putText(canvas, msg,  (self._screen_w//2 - w1//2, self._screen_h//2 - 20), _FONT, 0.9, (255, 255, 255), 2)
+            cv2.putText(canvas, msg2, (self._screen_w//2 - w2//2, self._screen_h//2 + 30), _FONT, 0.7, (180, 180, 180), 2)
+            cv2.imshow("UAT Calibration", canvas)
+            key = cv2.waitKey(50) & 0xFF
+            if key == ord(" "):
+                break
+            if key == ord("q"):
+                self.stop()
+                raise SystemExit
+
         print(f"[FaceSensor] Phase 2: Face calibration - relax face, look at camera ({_FACE_CALIB_SECS}s)\n")
         face_calib_done = False
         face_calib_start = time.time()
