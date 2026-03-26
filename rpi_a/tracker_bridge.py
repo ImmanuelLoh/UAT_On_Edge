@@ -126,8 +126,7 @@ class SessionRecorder:
                 "mouse": mouse_agg,
                 "browser": browser_agg,
                 "llm": llm_agg,
-            },
-            "snapshots": snapshots,
+            }
         }
 # ── end SessionRecorder ──────────────────────────────────────────────
 
