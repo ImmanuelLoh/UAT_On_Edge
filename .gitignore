@@ -9,3 +9,5 @@ rpi_b/session_logs
 uv.lock
 pyproject.toml
 .python-version
+
+*.DS_Store

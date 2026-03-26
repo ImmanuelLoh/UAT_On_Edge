@@ -7,6 +7,7 @@ import subprocess
 import copy
 import json
 import sys
+import statistics
 
 from transmission.MQTTClient import MQTTClient
 from transmission.VideoStreamClient import VideoStreamClient
@@ -20,6 +21,114 @@ from sensors.mouse_tracker import MouseTracker
 # MQTT transmission config
 RECEIVER_IP = sys.argv[1]
 LABEL = int(sys.argv[2])
+
+
+# ================================
+# Session Recorder
+class SessionRecorder:
+    """Buffers every MQTT snapshot and builds an end-of-session summary."""
+
+    def __init__(self, label: int):
+        self._lock = threading.Lock()
+        self._snapshots: list[dict] = []
+        self._start_time: float = time.time()
+        self.label = label
+
+    def record(self, snapshot: dict):
+        with self._lock:
+            self._snapshots.append(copy.deepcopy(snapshot))
+
+    def _safe_avg(self, values):
+        clean = [v for v in values if isinstance(v, (int, float))]
+        return round(statistics.mean(clean), 4) if clean else 0.0
+
+    def _safe_max(self, values):
+        clean = [v for v in values if isinstance(v, (int, float))]
+        return round(max(clean), 4) if clean else 0.0
+
+    def build_summary(self) -> dict:
+        with self._lock:
+            snapshots = list(self._snapshots)
+
+        end_time = time.time()
+        duration = round(end_time - self._start_time, 2)
+
+        # ── aggregates ──────────────────────────────────────────────
+        face_snaps   = [s["face"]   for s in snapshots if s.get("face")]
+        mouse_snaps  = [s["mouse"]  for s in snapshots if s.get("mouse")]
+        browser_snaps = [s["browser"] for s in snapshots if s.get("browser")]
+
+        # Face aggregates
+        detected = [f for f in face_snaps if f.get("face_detected")]
+        face_agg = {
+            "snapshots_with_face": len(detected),
+            "avg_frustration_score": self._safe_avg([f["frustration_score"] for f in detected]),
+            "peak_frustration_score": self._safe_max([f["frustration_score"] for f in detected]),
+            "avg_attention_score": self._safe_avg([f["attention_score"] for f in detected]),
+            "avg_blink_rate": self._safe_avg([f["blink_rate"] for f in detected]),
+            "emotion_counts": {},
+            "gaze_quadrant_counts": {},
+        }
+        for f in detected:
+            emo = f.get("emotion", "N/A")
+            face_agg["emotion_counts"][emo] = face_agg["emotion_counts"].get(emo, 0) + 1
+            gq = f.get("gaze_quadrant", "unknown")
+            face_agg["gaze_quadrant_counts"][gq] = face_agg["gaze_quadrant_counts"].get(gq, 0) + 1
+
+        # Mouse aggregates
+        mouse_agg = {
+            "avg_idle_time": self._safe_avg([m["idle_time"] for m in mouse_snaps]),
+            "peak_idle_time": self._safe_max([m["idle_time"] for m in mouse_snaps]),
+            "avg_interval_clicks_per_second": self._safe_avg([m["interval_clicks_per_second"] for m in mouse_snaps]),
+            "avg_overall_clicks_per_second": self._safe_avg([m["overall_clicks_per_second"] for m in mouse_snaps]),
+            "top_quadrant_counts": {},
+            "mouse_status_counts": {},
+        }
+        for m in mouse_snaps:
+            tq = m.get("top_quadrant", "unknown")
+            mouse_agg["top_quadrant_counts"][tq] = mouse_agg["top_quadrant_counts"].get(tq, 0) + 1
+            ms = m.get("mouse_status", "unknown")
+            mouse_agg["mouse_status_counts"][ms] = mouse_agg["mouse_status_counts"].get(ms, 0) + 1
+
+        # Browser aggregates
+        total_wrong = max((b.get("wrong_click", 0) for b in browser_snaps), default=0)
+        total_correct = max((b.get("correct_click", 0) for b in browser_snaps), default=0)
+        browser_agg = {
+            "total_wrong_clicks": total_wrong,
+            "total_correct_clicks": total_correct,
+        }
+
+        # LLM aggregates
+        llm_activation_by_task = {}
+
+        for snap in snapshots:
+            task = snap.get("browser", {}).get("task", "unknown")
+            llm  = snap.get("llm", {})
+
+            if llm.get("llm_activated"):
+                llm_activation_by_task[task] = True
+
+        llm_agg = {
+            "activation_by_task": llm_activation_by_task,  # e.g. {"Number Selection": True}
+        }
+
+        return {
+            "meta": {
+                "label": self.label,
+                "session_active": False,
+                "start_time": round(self._start_time, 2),
+                "end_time": round(end_time, 2),
+                "duration_seconds": duration,
+                "total_snapshots": len(snapshots),
+            },
+            "aggregates": {
+                "face": face_agg,
+                "mouse": mouse_agg,
+                "browser": browser_agg,
+                "llm": llm_agg,
+            }
+        }
+# ── end SessionRecorder ──────────────────────────────────────────────
 
 video_client = VideoStreamClient(host=RECEIVER_IP, port=LABEL)
 
@@ -390,13 +499,30 @@ def face_bridge_loop():
             face_sensor.stop()
 
 
+# ================================
+# MQTT Functionalities
+# =================================
+
+# Shared MQTT client reference (set by mqtt_publish_loop, used by summary loop)
+_mqtt_client_ref: "MQTTClient | None" = None
+_mqtt_client_ref_lock = threading.Lock()
+
+session_recorder = SessionRecorder(label=LABEL)
+
+
 # MQTT Loop
 def mqtt_publish_loop():
+    global _mqtt_client_ref
+
     broker_ip = RECEIVER_IP
     label = LABEL
 
     mqtt_client = MQTTClient(broker_ip=broker_ip, label=label)
-    last_published_llm_message = None  # track last sent
+
+    with _mqtt_client_ref_lock:
+        _mqtt_client_ref = mqtt_client
+
+    last_published_llm_message = None
     last_published_llm_role = None
 
     while True:
@@ -410,13 +536,50 @@ def mqtt_publish_loop():
             elif current_llm_message:
                 last_published_llm_message = current_llm_message
 
+            # Record every snapshot for end-of-session summary
+            session_recorder.record(snapshot)
+
             # print("[4] mqtt snapshot face:", snapshot["face"])
             payload = mqtt_client.build_payload(label, snapshot)
-            mqtt_client.publish(payload)
+            mqtt_client.publish_tick(payload)
         except Exception as e:
             print("[MQTT Publish Error]", e)
 
         time.sleep(0.5)
+
+
+def session_summary_loop():
+    """Polls app.py for the session-complete signal, then publishes the summary."""
+    print("[Summary Loop] Watching for session complete signal...")
+
+    while True:
+        try:
+            resp = requests.get(
+                "http://127.0.0.1:5000/api/session_complete_status", timeout=1.0
+            )
+            data = resp.json()
+
+            if data.get("complete"):
+                print("[Summary Loop] Session complete detected — building summary...")
+
+                summary = session_recorder.build_summary()
+                payload = json.dumps(summary)
+
+                with _mqtt_client_ref_lock:
+                    client = _mqtt_client_ref
+
+                if client is not None:
+                    client.publish_summary(payload)
+                    print("[Summary Loop] Summary sent. Exiting loop.")
+                else:
+                    print("[Summary Loop] MQTT client not ready — summary not sent.")
+
+                return  # One-shot: exit after publishing
+
+        except Exception as e:
+            print("[Summary Loop Error]", e)
+
+        time.sleep(3)
 
 
 # ================================
@@ -452,6 +615,7 @@ if __name__ == "__main__":
 
     threading.Thread(target=llm_bridge_loop, daemon=True).start()
     threading.Thread(target=mqtt_publish_loop, daemon=True).start()
+    threading.Thread(target=session_summary_loop, daemon=True).start()
 
     # Keep main thread alive
     try:

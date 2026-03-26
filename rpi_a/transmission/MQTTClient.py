@@ -7,11 +7,12 @@ import json
 
 class MQTTConstants:
     BROKER_PORT = 1883
-    TOPIC = "uat/raw"
+    RAW_TOPIC = "uat/raw"
+    SUMMARY_TOPIC = "uat/summary"
     VALID_LABELS = {5000, 5002}
 
 class MQTTClient:
-    def __init__(self, broker_ip, label=None, topic=MQTTConstants.TOPIC):
+    def __init__(self, broker_ip, label=None, raw_topic=MQTTConstants.RAW_TOPIC, summary_topic=MQTTConstants.SUMMARY_TOPIC):
         if not broker_ip or label is None:
             print("Arguments required: <BROKER_IP> <YOUR_LABEL>")
             sys.exit(1)
@@ -19,7 +20,9 @@ class MQTTClient:
         self.broker_ip = broker_ip
         self.broker_port = MQTTConstants.BROKER_PORT
         self.label = label
-        self.topic = topic
+        self.raw_topic = raw_topic
+        self.summary_topic = summary_topic
+        self.session_active = True
         self.client = mqtt.Client()
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect
@@ -36,17 +39,41 @@ class MQTTClient:
             print(f"Error: {e}")
             raise
     
-    def publish(self, payload, qos=0):
+    def publish_tick(self, payload, qos=0):
         if not self.connected:
             # Skipping publish because client is not connected
             return
+
+        if not self.session_active:
+            # Session has ended — suppress further raw publishes
+            return
         
-        result = self.client.publish(topic=self.topic, payload=payload, qos=qos)
+        result = self.client.publish(topic=self.raw_topic, payload=payload, qos=qos)
         if result.rc != mqtt.MQTT_ERR_SUCCESS:
-            print(f"Failed to publish message to {self.topic}")
+            print(f"Failed to publish message to {self.raw_topic}")
             print(f"Error code: {result.rc}")
         else:
-            print(f"Published message to {self.topic}: {payload}")
+            print(f"Published message to {self.raw_topic}: {payload}")
+
+    def publish_summary(self, summary_payload, qos=1):
+        """Publish end-of-session summary to uat/summary and mark session inactive."""
+        if not self.connected:
+            print("[MQTTClient] Cannot publish summary — not connected.")
+            return
+
+        result = self.client.publish(
+            topic=self.summary_topic,
+            payload=summary_payload,
+            qos=qos,
+        )
+        if result.rc != mqtt.MQTT_ERR_SUCCESS:
+            print(f"[MQTTClient] Failed to publish summary. Error code: {result.rc}")
+        else:
+            print(f"[MQTTClient] Session summary published to {self.summary_topic}")
+
+        # Mark session inactive — no more raw publishes after summary
+        self.session_active = False
+        print("[MQTTClient] Session marked inactive.")
 
     # def build_payload(self, label):
     #     data = {
@@ -116,7 +143,7 @@ def main():
     while True:
         # Sending example
         payload = mqtt_sender.build_payload(LABEL)
-        mqtt_sender.publish(payload)
+        mqtt_sender.publish_tick(payload)
         time.sleep(1)
 
 # if __name__ == "__main__":

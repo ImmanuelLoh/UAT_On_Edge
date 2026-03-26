@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 import time
 import threading
+import requests
 
 from context_buffer import ContextBuffer
 from trigger_engine import TriggerEngine
@@ -40,16 +41,17 @@ llm_state = {
     "last_message": "",
 }
 
-
 def record_llm_event(role: str, message: str):
     with llm_state_lock:
         llm_state["llm_activated"] = True
         llm_state["last_role"] = role
         llm_state["last_message"] = message
-
-
 # =======  END: LLM State for MQTT =============
 
+# ============= Session Complete Signal =============
+session_complete_lock = threading.Lock()
+session_complete_flag = {"fired": False}
+# ===================================================
 
 # Ensure assistant doesn't run on page 1 & 4
 def is_assistant_allowed(summary: dict) -> bool:
@@ -167,10 +169,10 @@ def reset_assistant_for_new_task():
     latest_ui_state["score"] = 0.0
     latest_ui_state["reason"] = None
 
-    # with llm_state_lock:
-    #     llm_state["llm_activated"] = False
-    #     llm_state["last_role"] = None
-    #     llm_state["last_message"] = ""
+    with llm_state_lock:
+        llm_state["llm_activated"] = False
+        llm_state["last_role"] = None
+        llm_state["last_message"] = ""
 
 
 def reevaluate_assistant():
@@ -221,7 +223,7 @@ def reevaluate_assistant():
             "assistant_message", ""
         ).strip() or build_fallback_hint(summary)
 
-        record_llm_event("assistant", reply_text)  # For MQTT dashboard
+        record_llm_event("assistant", reply_text) # For MQTT dashboard
 
         latest_ui_state["assistant_open"] = True
         latest_ui_state["proactive_message"] = reply_text
@@ -252,6 +254,12 @@ def page3():
 
 @app.route("/complete")
 def page4():
+    # UAT is complete — notify tracker_bridge to send summary details
+    try:
+        with session_complete_lock:
+            session_complete_flag["fired"] = True
+    except Exception as e:
+        print("[app.py] Could not set session complete:", e)
     return render_template("page4.html")
 
 
@@ -357,7 +365,7 @@ def ui_state():
 @app.route("/api/chat_reply", methods=["POST"])
 def chat_reply():
     user_msg = request.get_json().get("message", "")
-    record_llm_event("user", user_msg)  # For MQTT dashboard
+    record_llm_event("user", user_msg) # For MQTT dashboard
     summary = context_buffer.summarize()
     summary["user_message"] = user_msg
 
@@ -373,7 +381,7 @@ def chat_reply():
 
     llm_reply = request_assistance(summary, mode="chat")
     reply_text = llm_reply.get("assistant_message", "No response.")
-    record_llm_event("assistant", reply_text)  # For MQTT dashboard
+    record_llm_event("assistant", reply_text) # For MQTT dashboard
 
     latest_ui_state["assistant_open"] = True
     latest_ui_state["chat_message"] = reply_text
@@ -399,6 +407,13 @@ def close_chat():
 def get_llm_state():
     with llm_state_lock:
         return jsonify(dict(llm_state))
+
+
+@app.route("/api/session_complete_status")
+def session_complete_status():
+    with session_complete_lock:
+        return jsonify({"complete": session_complete_flag["fired"]})
+# ====================================================
 
 
 if __name__ == "__main__":

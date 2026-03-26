@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dashboard</title>
+<style>
+  :root {
+    --bg: #f6f8fb;
+    --card: #ffffff;
+    --card-2: #f9fbff;
+    --text: #162033;
+    --muted: #667085;
+    --border: #e5e9f2;
+    --accent: #356dff;
+    --accent-soft: #eef4ff;
+    --green: #0f9d68;
+    --green-soft: #e8f8f0;
+    --amber: #b7791f;
+    --amber-soft: #fff6e5;
+    --red: #d64545;
+    --red-soft: #fff0f0;
+    --shadow: 0 8px 24px rgba(16, 24, 40, 0.06);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 20px 28px; background: rgba(246,248,251,0.92); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand h1 { margin: 0; font-size: 22px; }
+  .brand p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  .header-actions { display: flex; align-items: center; gap: 12px; }
+  .updated { color: var(--muted); font-size: 13px; }
+  .btn {
+    border: 1px solid var(--border); background: var(--card); color: var(--text);
+    border-radius: 10px; padding: 10px 14px; cursor: pointer; font-weight: 600;
+    box-shadow: var(--shadow);
+  }
+  .btn:hover { border-color: #cfd8ea; }
+  .btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+  main { padding: 24px 28px 40px; max-width: 1400px; margin: 0 auto; }
+  .hero-stats {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px;
+  }
+  .stat-card, .panel, .computer-card, .history-card, .modal-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow);
+  }
+  .stat-card { padding: 18px 20px; }
+  .stat-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .stat-value { margin-top: 8px; font-size: 28px; font-weight: 700; }
+  .layout { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
+  .panel { padding: 20px; }
+  .panel h2 { margin: 0 0 8px; font-size: 20px; }
+  .panel-sub { color: var(--muted); font-size: 14px; margin-bottom: 16px; }
+  .lab-block + .lab-block { margin-top: 20px; }
+  .lab-head {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+  }
+  .lab-title { font-size: 18px; font-weight: 700; }
+  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill {
+    font-size: 12px; padding: 6px 10px; border-radius: 999px; font-weight: 600;
+    border: 1px solid var(--border); background: var(--card-2);
+  }
+  .pill.active { color: var(--green); background: var(--green-soft); border-color: #cce9d9; }
+  .pill.inactive { color: var(--amber); background: var(--amber-soft); border-color: #f3dfb0; }
+  .computer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  .computer-card { padding: 16px; }
+  .computer-head { display: flex; justify-content: space-between; align-items: start; gap: 8px; margin-bottom: 10px; }
+  .computer-name { font-weight: 700; font-size: 16px; }
+  .badge { font-size: 11px; font-weight: 700; padding: 6px 10px; border-radius: 999px; }
+  .badge.active { background: var(--green-soft); color: var(--green); }
+  .badge.inactive { background: var(--amber-soft); color: var(--amber); }
+  .muted { color: var(--muted); }
+  .metric-list { display: grid; gap: 8px; margin-top: 12px; }
+  .metric-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+  .task { background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 8px 10px; font-weight: 600; font-size: 13px; margin-top: 10px; }
+  .section-divider { height: 1px; background: var(--border); margin: 24px 0; }
+  .history-card { padding: 14px; }
+  .history-card + .history-card { margin-top: 12px; }
+  .history-top { display: flex; justify-content: space-between; gap: 8px; align-items: start; }
+  .history-title { font-weight: 700; }
+  .history-meta { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .history-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
+  .mini-stat { background: var(--card-2); border-radius: 12px; padding: 10px; }
+  .mini-label { color: var(--muted); font-size: 11px; }
+  .mini-value { margin-top: 4px; font-weight: 700; }
+  .history-actions { display: flex; justify-content: flex-end; }
+  .empty { color: var(--muted); background: var(--card-2); border: 1px dashed var(--border); border-radius: 14px; padding: 18px; }
+  .overlay {
+    position: fixed; inset: 0; background: rgba(15, 23, 42, 0.35); display: none; align-items: center; justify-content: center;
+    padding: 24px; z-index: 100;
+  }
+  .overlay.open { display: flex; }
+  .modal-card {
+    width: min(1180px, 100%); max-height: calc(100vh - 48px); overflow: auto; padding: 20px;
+  }
+  .modal-head { display: flex; justify-content: space-between; gap: 12px; align-items: start; margin-bottom: 18px; }
+  .close-btn { border: 0; background: transparent; font-size: 28px; cursor: pointer; color: var(--muted); }
+  .overview-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .chart-box { padding: 14px; border: 1px solid var(--border); border-radius: 16px; background: var(--card-2); }
+  .chart-title { font-weight: 700; margin-bottom: 12px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .legend span::before { content: ''; display: inline-block; width: 12px; height: 3px; margin-right: 6px; vertical-align: middle; border-radius: 999px; }
+  .legend .fr::before { background: #d64545; }
+  .legend .at::before { background: #356dff; }
+  .legend .wc::before { background: #b7791f; }
+  .legend .gz::before { background: #7c3aed; }
+  .detail-layout { display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; margin-top: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 10px 8px; border-bottom: 1px solid var(--border); text-align: left; }
+  th { color: var(--muted); font-size: 12px; }
+  .event-list { display: grid; gap: 10px; }
+  .event-item { padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+  .tooltip {
+    position: fixed; pointer-events: none; background: #111827; color: white; padding: 10px 12px; border-radius: 10px;
+    font-size: 12px; line-height: 1.5; box-shadow: 0 10px 30px rgba(0,0,0,0.22); display: none; z-index: 120;
+    max-width: 280px;
+  }
+  @media (max-width: 1080px) {
+    .layout, .detail-layout { grid-template-columns: 1fr; }
+    .hero-stats, .overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 720px) {
+    header, main { padding-left: 16px; padding-right: 16px; }
+    .hero-stats, .overview-grid, .history-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>Dashboard</h1>
+    <p>UAT in Action!</p>
+  </div>
+  <div class="header-actions">
+    <div class="updated" id="last-updated">—</div>
+    <button class="btn" id="refresh-btn">Refresh</button>
+  </div>
+</header>
+
+<main>
+  <section class="hero-stats">
+    <div class="stat-card"><div class="stat-label">Labs with data</div><div class="stat-value" id="stat-labs">—</div></div>
+    <div class="stat-card"><div class="stat-label">Computers shown</div><div class="stat-value" id="stat-computers">—</div></div>
+    <div class="stat-card"><div class="stat-label">Active now</div><div class="stat-value" id="stat-active">—</div></div>
+    <div class="stat-card"><div class="stat-label">Completed sessions</div><div class="stat-value" id="stat-history">—</div></div>
+  </section>
+
+  <div class="layout">
+    <section class="panel">
+      <h2>Live Lab Status</h2>
+      <div class="panel-sub">Latest session controls the live card. Completed sessions are shown here as inactive.</div>
+      <div id="live-container"><div class="empty">Loading live lab data…</div></div>
+    </section>
+
+    <section class="panel">
+      <h2>Completed Sessions</h2>
+      <div class="panel-sub">View full timeline of past sessions.</div>
+      <div id="history-container"><div class="empty">Loading completed sessions…</div></div>
+    </section>
+  </div>
+</main>
+
+<div class="overlay" id="session-modal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div>
+        <h2 id="modal-title" style="margin:0 0 6px">Session Details</h2>
+        <div class="muted" id="modal-subtitle">—</div>
+      </div>
+      <button class="close-btn" id="close-modal">×</button>
+    </div>
+
+    <div class="overview-grid" id="overview-grid"></div>
+
+    <div class="chart-box">
+      <div class="chart-title">Timeline Overview</div>
+      <svg id="timeline-chart" width="100%" aria-label="timeline chart"></svg>
+      <div class="legend">
+        <span class="fr">Frustration</span>
+        <span class="at">Attention</span>
+        <span class="wc">Wrong clicks</span>
+        <span class="gz">Gaze quadrant</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="#d6454533" stroke="#d64545" stroke-width="1.5"/></svg> Frustration peak</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12"><polygon points="6,1 11,11 1,11" fill="#356dff33" stroke="#356dff" stroke-width="1.5"/></svg> LLM activated</span>
+      </div>
+    </div>
+
+    <div class="detail-layout">
+      <div class="chart-box">
+        <div class="chart-title">Tasks Completed</div>
+        <div style="overflow:auto; max-height: 360px;">
+          <table>
+            <thead>
+              <tr><th>Task</th><th>Duration</th><th>Correct</th><th>Wrong</th><th>Peak Frust.</th><th>LLM</th></tr>
+            </thead>
+            <tbody id="task-table"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Derived Events</div>
+        <div class="event-list" id="event-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="chart-tooltip"></div>
+
+<script>
+const PROXY_URL = 'http://localhost:3000';
+let loading = false;
+
+function fmt(value, fallback = '—') { return value === null || value === undefined || value === '' ? fallback : value; }
+function fmtNum(value, digits = 1) { return value === null || value === undefined || Number.isNaN(Number(value)) ? '—' : Number(value).toFixed(digits); }
+function fmtTime(value) {
+  if (!value) return '—';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value : d.toLocaleString('en-SG', { hour12: false });
+}
+function fmtDuration(seconds) {
+  if (seconds === null || seconds === undefined) return '—';
+  const s = Math.round(Number(seconds));
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return `${m}m ${rem}s`;
+}
+
+function renderLiveCard(comp) {
+  const tick = comp.tick || {};
+  const face = tick.face || {};
+  const browser = tick.browser || {};
+  const mouse = tick.mouse || {};
+  const displayStatus = comp.displayStatus || (comp.sessionData?.status === 'active' ? 'active' : 'inactive');
+  
+  const badge = displayStatus === 'active'
+    ? '<span class="badge active">Active</span>'
+    : '<span class="badge inactive">Inactive</span>';
+
+  // Define the conditional content
+  const details = displayStatus === 'active' 
+    ? `<div class="task">${fmt(browser.task, 'No active task')}</div>
+      <div class="metric-list">
+        <div class="metric-row"><span>Emotion</span><strong>${fmt(face.emotion)}</strong></div>
+        <div class="metric-row"><span>Attention</span><strong>${fmtNum(face.attention_score)}${face.attention_score != null ? '%' : ''}</strong></div>
+        <div class="metric-row"><span>Frustration</span><strong>${fmtNum(face.frustration_score)}${face.frustration_score != null ? '%' : ''}</strong></div>
+        <div class="metric-row"><span>Wrong clicks</span><strong>${fmt(browser.wrong_click, 0)}</strong></div>
+        <div class="metric-row"><span>Correct clicks</span><strong>${fmt(browser.correct_click, 0)}</strong></div>
+        <div class="metric-row"><span>Mouse</span><strong>${fmt(mouse.mouse_status)}</strong></div>
+      </div>` 
+    : ''; // Return empty string if not active
+
+  return `
+    <div class="computer-card">
+      <div class="computer-head">
+        <div>
+          <div class="computer-name">${comp.computerId}</div>
+          <div class="muted">${comp.completed ? 'Latest session completed' : 'Monitoring status board'}</div>
+        </div>
+        ${badge}
+      </div>
+      ${details}
+      <div class="muted" style="margin-top:12px; font-size:12px;">Latest Session: ${fmt(comp.sessionId)}</div>
+    </div>`;
+}
+
+function renderLiveLabs(labs) {
+  const container = document.getElementById('live-container');
+  if (!labs.length) {
+    container.innerHTML = '<div class="empty">No live lab data found.</div>';
+    return;
+  }
+
+  container.innerHTML = labs.map(({ labId, computers }) => {
+    const active = computers.filter(c => (c.displayStatus || c.sessionData?.status) === 'active').length;
+    const inactive = computers.length - active;
+    return `
+      <div class="lab-block">
+        <div class="lab-head">
+          <div class="lab-title">${labId}</div>
+          <div class="pill-row">
+            <span class="pill active">${active} active</span>
+            <span class="pill inactive">${inactive} inactive</span>
+          </div>
+        </div>
+        <div class="computer-grid">${computers.map(renderLiveCard).join('')}</div>
+      </div>`;
+  }).join('<div class="section-divider"></div>');
+}
+
+function renderHistory(labs) {
+  const container = document.getElementById('history-container');
+  if (!labs.length) {
+    container.innerHTML = '<div class="empty">No completed session history found yet.</div>';
+    return;
+  }
+  console.log(labs);
+  container.innerHTML = labs.map(({ labId, computers }) => `
+    <div class="lab-block">
+      <div class="lab-head">
+        <div class="lab-title">${labId}</div>
+        <div class="muted">${computers.length} computers with completed sessions</div>
+      </div>
+      ${computers.map(({ computerId, sessions }) => `
+        <div style="margin-bottom:14px;">
+          <div class="muted" style="margin-bottom:8px; font-weight:600;">${computerId}</div>
+          ${sessions.map((session) => `
+            <div class="history-card">
+              <div class="history-top">
+                <div>
+                  <div class="history-title">${session.sessionId}</div>
+                  <div class="history-meta">Ended ${fmtTime(session.ended_at)} · Duration ${fmtDuration(session.meta.duration_seconds)}</div>
+                </div>
+                <span class="badge inactive">Completed</span>
+              </div>
+              <div class="history-grid">
+                <div class="mini-stat"><div class="mini-label">Wrong clicks</div><div class="mini-value">${fmt(session.aggregates.browser.total_wrong_clicks, 0)}</div></div>
+                <div class="mini-stat"><div class="mini-label">Avg frustration</div><div class="mini-value">${fmtNum(session.aggregates.face.avg_frustration_score)}${session.aggregates.face.avg_frustration_score != null ? '%' : ''}</div></div>
+                <div class="mini-stat"><div class="mini-label">Avg attention</div><div class="mini-value">${fmtNum(session.aggregates.face.avg_attention_score)}${session.aggregates.face.avg_attention_score != null ? '%' : ''}</div></div>
+              </div>
+              <div class="history-actions">
+                <button class="btn btn-primary" data-lab="${labId}" data-computer="${computerId}" data-session="${session.sessionId}">View session</button>
+              </div>
+            </div>`).join('')}
+        </div>`).join('')}
+    </div>`).join('<div class="section-divider"></div>');
+
+  container.querySelectorAll('button[data-session]').forEach((btn) => {
+    btn.addEventListener('click', () => openSession(btn.dataset.lab, btn.dataset.computer, btn.dataset.session));
+  });
+}
+
+function setStats(liveLabs, historyLabs) {
+  const computers = liveLabs.flatMap(l => l.computers || []);
+  const active = computers.filter(c => (c.displayStatus || c.sessionData?.status) === 'active').length;
+  const completedSessions = historyLabs.flatMap(l => l.computers || []).flatMap(c => c.sessions || []).length;
+
+  document.getElementById('stat-labs').textContent = liveLabs.length;
+  document.getElementById('stat-computers').textContent = computers.length;
+  document.getElementById('stat-active').textContent = active;
+  document.getElementById('stat-history').textContent = completedSessions;
+}
+
+// Palette for task bands — cycles if there are more tasks than colours
+const TASK_COLOURS = [
+  '#356dff22', '#0f9d6822', '#b7791f22', '#d6454522',
+  '#7c3aed22', '#0891b222', '#be185d22', '#65a30d22',
+];
+const TASK_LABEL_COLOURS = [
+  '#356dff', '#0f9d68', '#b7791f', '#d64545',
+  '#7c3aed', '#0891b2', '#be185d', '#65a30d',
+];
+
+function buildPathByTime(points, innerWidth, innerHeight, tMin, tMax, yAccessor, maxY = 100) {
+  if (!points.length) return '';
+  const tRange = tMax - tMin || 1;
+  return points.map((p, i) => {
+    const x = ((p.timestamp - tMin) / tRange) * innerWidth;
+    const val = yAccessor(p);
+    const clamped = Math.max(0, Math.min(maxY, val || 0));
+    const y = innerHeight - (clamped / maxY) * innerHeight;
+    return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+  }).join(' ');
+}
+
+function renderTimelineChart(timeline, events = []) {
+  const svg = document.getElementById('timeline-chart');
+  const tooltip = document.getElementById('chart-tooltip');
+
+  const BAND_H = 20;   // height of each task band strip
+  const padding = { top: 20, right: 20, bottom: 36, left: 44 };
+  const chartH  = 200; // line-chart area height
+  const width   = 960;
+
+  // Deduplicate tasks in order of first appearance
+  const taskOrder = [];
+  timeline.forEach(p => {
+    const t = p.browser?.task || 'Unknown';
+    if (!taskOrder.includes(t)) taskOrder.push(t);
+  });
+  const numTasks = taskOrder.length;
+  const bandsH = numTasks * BAND_H;  // total height of task-band area
+
+  const totalH = padding.top + chartH + bandsH + padding.bottom;
+  svg.setAttribute('viewBox', `0 0 ${width} ${totalH}`);
+  svg.setAttribute('height', totalH);
+
+  const innerWidth  = width - padding.left - padding.right;
+  const innerHeight = chartH; // line chart inner height
+
+  // Time scale
+  const timestamps = timeline.map(p => p.timestamp).filter(Boolean);
+  const tMin = Math.min(...timestamps);
+  const tMax = Math.max(...timestamps);
+  const tRange = tMax - tMin || 1;
+
+  const toX = t => ((t - tMin) / tRange) * innerWidth;
+
+  // Downsample for path rendering only (not for task bands)
+  const points = timeline.filter((_, i) => i % Math.max(1, Math.ceil(timeline.length / 120)) === 0);
+  const maxWrong = Math.max(5, ...timeline.map(p => Number(p.browser?.wrong_click || 0)));
+
+  const frPath = buildPathByTime(points, innerWidth, innerHeight, tMin, tMax, p => p.face?.frustration_score, 100);
+  const atPath = buildPathByTime(points, innerWidth, innerHeight, tMin, tMax, p => p.face?.attention_score, 100);
+  const wcPath = buildPathByTime(points, innerWidth, innerHeight, tMin, tMax, p => (Number(p.browser?.wrong_click || 0) / maxWrong) * 100, 100);
+
+  // Build task band segments: [{task, x1, x2}]
+  const segments = [];
+  let segStart = null, segTask = null;
+  timeline.forEach((p, i) => {
+    const task = p.browser?.task || 'Unknown';
+    if (task !== segTask) {
+      if (segTask !== null) segments.push({ task: segTask, x1: toX(segStart), x2: toX(p.timestamp) });
+      segTask = task;
+      segStart = p.timestamp;
+    }
+    if (i === timeline.length - 1) {
+      segments.push({ task: segTask, x1: toX(segStart), x2: innerWidth });
+    }
+  });
+
+  // X-axis tick labels (up to 6 ticks)
+  const tickCount = 6;
+  const ticks = Array.from({ length: tickCount }, (_, i) => {
+    const t = tMin + (i / (tickCount - 1)) * tRange;
+    const x = toX(t);
+    const d = new Date(t * 1000);
+    const label = d.toLocaleTimeString('en-SG', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    return { x, label };
+  });
+
+  // Y-axis ticks
+  const yTicks = [0, 25, 50, 75, 100];
+
+  const bandsY = padding.top + innerHeight; // y where task bands start
+
+  svg.innerHTML = `
+    <defs>
+      <clipPath id="chart-clip">
+        <rect x="0" y="0" width="${innerWidth}" height="${innerHeight}" />
+      </clipPath>
+    </defs>
+    <g transform="translate(${padding.left},${padding.top})">
+
+      <!-- Y-axis grid + labels -->
+      ${yTicks.map(v => {
+        const y = innerHeight - (v / 100) * innerHeight;
+        return `
+          <line x1="0" y1="${y.toFixed(1)}" x2="${innerWidth}" y2="${y.toFixed(1)}" stroke="#e5e9f2" stroke-dasharray="3 3"/>
+          <text x="-6" y="${(y + 4).toFixed(1)}" fill="#667085" font-size="10" text-anchor="end">${v}</text>`;
+      }).join('')}
+
+      <!-- Axes -->
+      <line x1="0" y1="${innerHeight}" x2="${innerWidth}" y2="${innerHeight}" stroke="#cfd8ea" />
+      <line x1="0" y1="0" x2="0" y2="${innerHeight}" stroke="#cfd8ea" />
+
+      <!-- Lines -->
+      <g clip-path="url(#chart-clip)">
+        <path d="${frPath}" fill="none" stroke="#d64545" stroke-width="2" />
+        <path d="${atPath}" fill="none" stroke="#356dff" stroke-width="2" />
+        <path d="${wcPath}" fill="none" stroke="#b7791f" stroke-width="2" stroke-dasharray="6 4" />
+      </g>
+
+      <!-- Gaze quadrant strip (thin coloured bar above x-axis) -->
+      ${(() => {
+        const GAZE_COLOURS = {
+          'Top-Left':     '#7c3aed44',
+          'Top-Right':    '#0891b244',
+          'Bottom-Left':  '#be185d44',
+          'Bottom-Right': '#65a30d44',
+          'CENTER':       '#b7791f44',
+          'UNCALIBRATED': '#cfd8ea55',
+        };
+        const STRIP_Y = innerHeight - 8;
+        const STRIP_H = 6;
+        let gazeSegs = [];
+        let cur = null;
+        timeline.forEach((p, i) => {
+          const g = p.face?.gaze_quadrant || 'UNCALIBRATED';
+          if (g !== cur?.gaze) {
+            if (cur) cur.x2 = toX(p.timestamp);
+            cur = { gaze: g, x1: toX(p.timestamp), x2: innerWidth };
+            gazeSegs.push(cur);
+          }
+          if (i === timeline.length - 1 && cur) cur.x2 = innerWidth;
+        });
+        return gazeSegs.map(s => `<rect x="${s.x1.toFixed(1)}" y="${STRIP_Y}" width="${Math.max(0, s.x2 - s.x1).toFixed(1)}" height="${STRIP_H}" fill="${GAZE_COLOURS[s.gaze] || '#cfd8ea55'}" />`).join('');
+      })()}
+
+      <!-- Hover dots -->
+      ${points.map(p => {
+        const x = toX(p.timestamp);
+        const fy = innerHeight - (Math.max(0, Math.min(100, p.face?.frustration_score || 0)) / 100) * innerHeight;
+        return `<circle class="chart-point" cx="${x.toFixed(1)}" cy="${fy.toFixed(1)}" r="3.5" fill="#d64545" opacity="0.7"
+          data-tooltip='${JSON.stringify({
+            timestamp: p.timestamp,
+            task: p.browser?.task,
+            emotion: p.face?.emotion,
+            attention: p.face?.attention_score,
+            frustration: p.face?.frustration_score,
+            wrong: p.browser?.wrong_click,
+            llm: p.llm?.llm_activated,
+            gaze: p.face?.gaze_quadrant,
+          }).replace(/'/g, '&apos;')}' />`;
+      }).join('')}
+
+      <!-- Event indicators: frustration peak (circle) and LLM activation (triangle) -->
+      ${events.map(e => {
+        const x = toX(e.timestamp);
+        if (e.type === 'frustration') {
+          const fy = innerHeight - (Math.max(0, Math.min(100, e.timestamp ? (timeline.find(p => p.timestamp === e.timestamp)?.face?.frustration_score || 0) : 0)) / 100) * innerHeight;
+          return `<circle cx="${x.toFixed(1)}" cy="${fy.toFixed(1)}" r="7" fill="#d6454522" stroke="#d64545" stroke-width="1.5" class="event-marker" data-label="${e.label} · ${e.task}" />`;
+        } else if (e.type === 'llm') {
+          const tip = (innerHeight * 0.1).toFixed(1);
+          const pts = `${x.toFixed(1)},${tip} ${(x-7).toFixed(1)},${(Number(tip)+13).toFixed(1)} ${(x+7).toFixed(1)},${(Number(tip)+13).toFixed(1)}`;
+          return `<polygon points="${pts}" fill="#356dff22" stroke="#356dff" stroke-width="1.5" class="event-marker" data-label="${e.label} · ${e.task}" />`;
+        }
+        return '';
+      }).join('')}
+
+      <!-- X-axis ticks -->
+      ${ticks.map(({ x, label }) => `
+        <line x1="${x.toFixed(1)}" y1="${innerHeight}" x2="${x.toFixed(1)}" y2="${(innerHeight + 4).toFixed(1)}" stroke="#cfd8ea"/>
+        <text x="${x.toFixed(1)}" y="${(innerHeight + 16).toFixed(1)}" fill="#667085" font-size="10" text-anchor="middle">${label}</text>
+      `).join('')}
+
+      <!-- Task bands -->
+      ${taskOrder.map((task, ti) => {
+        const bandY = innerHeight + (ti * BAND_H);
+        const colour = TASK_COLOURS[ti % TASK_COLOURS.length];
+        const labelColour = TASK_LABEL_COLOURS[ti % TASK_LABEL_COLOURS.length];
+        const taskSegs = segments.filter(s => s.task === task);
+        return taskSegs.map(s => `
+          <rect x="${s.x1.toFixed(1)}" y="${(bandY + 24).toFixed(1)}" width="${(s.x2 - s.x1).toFixed(1)}" height="${BAND_H - 2}" fill="${colour}" rx="3"/>
+          ${(s.x2 - s.x1) > 40 ? `<text x="${((s.x1 + s.x2) / 2).toFixed(1)}" y="${(bandY + 24 + BAND_H / 2 + 4).toFixed(1)}" fill="${labelColour}" font-size="9" font-weight="600" text-anchor="middle">${task}</text>` : ''}
+        `).join('');
+      }).join('')}
+
+      <!-- Task row labels on left -->
+      ${taskOrder.map((task, ti) => {
+        const bandY = innerHeight + (ti * BAND_H);
+        return `<text x="-6" y="${(bandY + 24 + BAND_H / 2 + 4).toFixed(1)}" fill="#667085" font-size="9" text-anchor="end" font-weight="600">${task.length > 12 ? task.slice(0, 11) + '…' : task}</text>`;
+      }).join('')}
+
+    </g>`;
+
+  svg.querySelectorAll('.chart-point').forEach((point) => {
+    point.addEventListener('mousemove', (event) => {
+      const data = JSON.parse(point.getAttribute('data-tooltip'));
+      const d = new Date(data.timestamp * 1000);
+      const timeLabel = d.toLocaleTimeString('en-SG', { hour12: false });
+      tooltip.innerHTML = `<strong>${timeLabel}</strong><br>${data.task || '—'}<br>Emotion: ${fmt(data.emotion)}<br>Attention: ${fmtNum(data.attention)}%<br>Frustration: ${fmtNum(data.frustration)}<br>Wrong clicks: ${fmt(data.wrong, 0)}<br>LLM active: ${data.llm ? 'Yes' : 'No'}<br>Gaze: ${fmt(data.gaze)}`;
+      tooltip.style.display = 'block';
+      tooltip.style.left = `${event.clientX + 14}px`;
+      tooltip.style.top = `${event.clientY + 14}px`;
+    });
+    point.addEventListener('mouseleave', () => {
+      tooltip.style.display = 'none';
+    });
+  });
+
+  svg.querySelectorAll('.event-marker').forEach((marker) => {
+    marker.style.cursor = 'pointer';
+    marker.addEventListener('mousemove', (event) => {
+      tooltip.innerHTML = marker.getAttribute('data-label');
+      tooltip.style.display = 'block';
+      tooltip.style.left = `${event.clientX + 14}px`;
+      tooltip.style.top = `${event.clientY + 14}px`;
+    });
+    marker.addEventListener('mouseleave', () => {
+      tooltip.style.display = 'none';
+    });
+  });
+}
+
+async function openSession(labId, computerId, sessionId) {
+  const overlay = document.getElementById('session-modal');
+  document.getElementById('modal-title').textContent = `${labId} · ${computerId}`;
+  document.getElementById('modal-subtitle').textContent = `Loading ${sessionId}…`;
+  document.getElementById('overview-grid').innerHTML = '';
+  document.getElementById('task-table').innerHTML = '<tr><td colspan="6">Loading…</td></tr>';
+  document.getElementById('event-list').innerHTML = '<div class="empty">Loading…</div>';
+  overlay.classList.add('open');
+
+  const res = await fetch(`${PROXY_URL}/api/session/${encodeURIComponent(labId)}/${encodeURIComponent(computerId)}/${encodeURIComponent(sessionId)}`);
+  const payload = await res.json();
+  if (!res.ok || !payload.ok) {
+    document.getElementById('task-table').innerHTML = `<tr><td colspan="6">${payload.error || 'Failed to load session'}</td></tr>`;
+    return;
+  }
+
+  document.getElementById('modal-subtitle').textContent = `${payload.sessionId} · ${fmtTime(payload.started_at)} → ${fmtTime(payload.ended_at)}`;
+
+  // Use pre-computed aggregates from the session document
+  const aggr = payload.aggregates || {};
+  const meta  = payload.meta || {};
+  const overviewItems = [
+    ['Duration',        fmtDuration(meta.duration_seconds)],
+    ['Snapshots',       fmt(meta.total_snapshots, payload.timeline.length)],
+    ['Wrong clicks',    fmt(aggr.browser?.total_wrong_clicks, 0)],
+    ['Correct clicks',  fmt(aggr.browser?.total_correct_clicks, 0)],
+    ['Avg frustration', fmtNum(aggr.face?.avg_frustration_score)],
+    ['Peak frustration',fmtNum(aggr.face?.peak_frustration_score)],
+    ['Avg attention',   `${fmtNum(aggr.face?.avg_attention_score)}${aggr.face?.avg_attention_score != null ? '%' : ''}`],
+    ['Chunks',          fmt(payload.chunks?.length, 0)],
+  ];
+  document.getElementById('overview-grid').innerHTML = overviewItems.map(([label, value]) => `
+    <div class="mini-stat"><div class="mini-label">${label}</div><div class="mini-value">${value}</div></div>`).join('');
+
+  renderTimelineChart(payload.timeline, payload.events);
+
+  // Tasks Completed table
+  const tasks = payload.taskSummary || [];
+  document.getElementById('task-table').innerHTML = tasks.length
+    ? tasks.map((t) => `
+        <tr>
+          <td><strong>${fmt(t.task)}</strong></td>
+          <td>${fmtDuration(t.durationSeconds)}</td>
+          <td style="color:var(--green)">${fmt(t.correctClicks, 0)}</td>
+          <td style="color:var(--red)">${fmt(t.wrongClicks, 0)}</td>
+          <td>${fmtNum(t.peakFrustration)}</td>
+          <td>${t.llmActivated ? '<span style="color:var(--accent);font-weight:700">Yes</span>' : 'No'}</td>
+        </tr>`).join('')
+    : '<tr><td colspan="6">No task data found.</td></tr>';
+
+  // Derived events panel
+  const events = payload.events || [];
+  document.getElementById('event-list').innerHTML = events.length
+    ? events.map((e) => {
+        const icon = e.type === 'frustration' ? '🔴' : '🔵';
+        const d = new Date(e.timestamp * 1000);
+        const timeLabel = d.toLocaleTimeString('en-SG', { hour12: false });
+        return `<div class="event-item">${icon} <strong>${e.label}</strong><div class="muted" style="margin-top:4px;">${timeLabel} · ${e.task}</div></div>`;
+      }).join('')
+    : '<div class="empty">No derived events found.</div>';
+}
+
+async function loadDashboard() {
+  if (loading) return;
+  loading = true;
+  document.getElementById('refresh-btn').disabled = true;
+
+  try {
+    const [liveRes, historyRes] = await Promise.all([
+      fetch(`${PROXY_URL}/api/labs`),
+      fetch(`${PROXY_URL}/api/history?limit=5`),
+    ]);
+    const livePayload = await liveRes.json();
+    const historyPayload = await historyRes.json();
+    if (!liveRes.ok || !livePayload.ok) throw new Error(livePayload.error || `Live API failed (${liveRes.status})`);
+    if (!historyRes.ok || !historyPayload.ok) throw new Error(historyPayload.error || `History API failed (${historyRes.status})`);
+
+    renderLiveLabs(livePayload.labs || []);
+    renderHistory(historyPayload.labs || []);
+    setStats(livePayload.labs || [], historyPayload.labs || []);
+    document.getElementById('last-updated').textContent = `Updated ${new Date().toLocaleTimeString('en-SG', { hour12: false })}`;
+  } catch (err) {
+    document.getElementById('live-container').innerHTML = `<div class="empty">${err.message}</div>`;
+    document.getElementById('history-container').innerHTML = '<div class="empty">Could not load completed session history.</div>';
+    console.error(err);
+  } finally {
+    loading = false;
+    document.getElementById('refresh-btn').disabled = false;
+  }
+}
+
+document.getElementById('refresh-btn').addEventListener('click', loadDashboard);
+document.getElementById('close-modal').addEventListener('click', () => {
+  document.getElementById('session-modal').classList.remove('open');
+  document.getElementById('chart-tooltip').style.display = 'none';
+});
+document.getElementById('session-modal').addEventListener('click', (event) => {
+  if (event.target.id === 'session-modal') {
+    document.getElementById('session-modal').classList.remove('open');
+    document.getElementById('chart-tooltip').style.display = 'none';
+  }
+});
+
+loadDashboard();
+setInterval(loadDashboard, 30000);
+</script>
+</body>
+</html>
