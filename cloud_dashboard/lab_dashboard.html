@@ -87,6 +87,43 @@
   .history-card { padding: 14px; }
   .history-card + .history-card { margin-top: 12px; }
   .history-top { display: flex; justify-content: space-between; gap: 8px; align-items: start; }
+  .history-lab-dropdown {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--card-2);
+    overflow: hidden;
+  }
+  .history-lab-dropdown + .history-lab-dropdown { margin-top: 14px; }
+  .history-lab-summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    user-select: none;
+  }
+  .history-lab-summary::-webkit-details-marker { display: none; }
+  .history-lab-summary:hover { background: #f2f6ff; }
+  .history-lab-main { display: flex; flex-direction: column; gap: 4px; }
+  .history-lab-meta { color: var(--muted); font-size: 13px; }
+  .history-lab-arrow {
+    color: var(--muted);
+    font-size: 14px;
+    transition: transform 0.2s ease;
+  }
+  .history-lab-dropdown[open] .history-lab-arrow { transform: rotate(180deg); }
+  .history-lab-content {
+    padding: 0 18px 18px;
+    border-top: 1px solid var(--border);
+    background: var(--card);
+  }
+  .computer-history-group + .computer-history-group {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
   .history-title { font-weight: 700; }
   .history-meta { color: var(--muted); font-size: 13px; margin-top: 4px; }
   .history-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
@@ -113,7 +150,6 @@
   .legend .fr::before { background: #d64545; }
   .legend .at::before { background: #356dff; }
   .legend .wc::before { background: #b7791f; }
-  .legend .gz::before { background: #7c3aed; }
   .detail-layout { display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; margin-top: 16px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { padding: 10px 8px; border-bottom: 1px solid var(--border); text-align: left; }
@@ -189,7 +225,27 @@
         <span class="fr">Frustration</span>
         <span class="at">Attention</span>
         <span class="wc">Wrong clicks</span>
-        <span class="gz">Gaze quadrant</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <span style="font-size:11px;color:var(--muted);font-weight:600;margin-right:2px;">Gaze:</span>
+          <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--muted);">
+            <span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#3b82f6;"></span>Top-Left
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--muted);">
+            <span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#8b5cf6;"></span>Top-Right
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--muted);">
+            <span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#06b6d4;"></span>Bottom-Left
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--muted);">
+            <span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#10b981;"></span>Bottom-Right
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--muted);">
+            <span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#f59e0b;"></span>Center
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--muted);">
+            <span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e2e8f0;border:1px solid #cfd8ea;"></span>Uncalibrated
+          </span>
+        </span>
         <span style="display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="#d6454533" stroke="#d64545" stroke-width="1.5"/></svg> Frustration peak</span>
         <span style="display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12"><polygon points="6,1 11,11 1,11" fill="#356dff33" stroke="#356dff" stroke-width="1.5"/></svg> LLM activated</span>
       </div>
@@ -304,36 +360,47 @@ function renderHistory(labs) {
     container.innerHTML = '<div class="empty">No completed session history found yet.</div>';
     return;
   }
-  console.log(labs);
-  container.innerHTML = labs.map(({ labId, computers }) => `
-    <div class="lab-block">
-      <div class="lab-head">
-        <div class="lab-title">${labId}</div>
-        <div class="muted">${computers.length} computers with completed sessions</div>
-      </div>
-      ${computers.map(({ computerId, sessions }) => `
-        <div style="margin-bottom:14px;">
-          <div class="muted" style="margin-bottom:8px; font-weight:600;">${computerId}</div>
-          ${sessions.map((session) => `
-            <div class="history-card">
-              <div class="history-top">
-                <div>
-                  <div class="history-title">${session.sessionId}</div>
-                  <div class="history-meta">Ended ${fmtTime(session.ended_at)} · Duration ${fmtDuration(session.meta.duration_seconds)}</div>
-                </div>
-                <span class="badge inactive">Completed</span>
-              </div>
-              <div class="history-grid">
-                <div class="mini-stat"><div class="mini-label">Wrong clicks</div><div class="mini-value">${fmt(session.aggregates.browser.total_wrong_clicks, 0)}</div></div>
-                <div class="mini-stat"><div class="mini-label">Avg frustration</div><div class="mini-value">${fmtNum(session.aggregates.face.avg_frustration_score)}${session.aggregates.face.avg_frustration_score != null ? '%' : ''}</div></div>
-                <div class="mini-stat"><div class="mini-label">Avg attention</div><div class="mini-value">${fmtNum(session.aggregates.face.avg_attention_score)}${session.aggregates.face.avg_attention_score != null ? '%' : ''}</div></div>
-              </div>
-              <div class="history-actions">
-                <button class="btn btn-primary" data-lab="${labId}" data-computer="${computerId}" data-session="${session.sessionId}">View session</button>
-              </div>
+
+  container.innerHTML = labs.map(({ labId, computers }, index) => {
+    const totalSessions = computers.reduce((sum, c) => sum + ((c.sessions || []).length), 0);
+    return `
+      <details class="history-lab-dropdown lab-block" ${index === 0 ? 'open' : ''}>
+        <summary class="history-lab-summary">
+          <div class="history-lab-main">
+            <div class="lab-title">${labId}</div>
+            <div class="history-lab-meta">${totalSessions} completed sessions across ${computers.length} computer${computers.length === 1 ? '' : 's'}</div>
+          </div>
+          <div class="pill-row">
+            <span class="pill inactive">${totalSessions} completed</span>
+            <span class="history-lab-arrow">▼</span>
+          </div>
+        </summary>
+        <div class="history-lab-content">
+          ${computers.map(({ computerId, sessions }) => `
+            <div class="computer-history-group">
+              <div class="muted" style="margin:14px 0 8px; font-weight:600;">${computerId}</div>
+              ${sessions.map((session) => `
+                <div class="history-card">
+                  <div class="history-top">
+                    <div>
+                      <div class="history-title">${session.sessionId}</div>
+                      <div class="history-meta">Ended ${fmtTime(session.ended_at)} · Duration ${fmtDuration(session.meta.duration_seconds)}</div>
+                    </div>
+                    <span class="badge inactive">Completed</span>
+                  </div>
+                  <div class="history-grid">
+                    <div class="mini-stat"><div class="mini-label">Wrong clicks</div><div class="mini-value">${fmt(session.aggregates.browser.total_wrong_clicks, 0)}</div></div>
+                    <div class="mini-stat"><div class="mini-label">Avg frustration</div><div class="mini-value">${fmtNum(session.aggregates.face.avg_frustration_score)}${session.aggregates.face.avg_frustration_score != null ? '%' : ''}</div></div>
+                    <div class="mini-stat"><div class="mini-label">Avg attention</div><div class="mini-value">${fmtNum(session.aggregates.face.avg_attention_score)}${session.aggregates.face.avg_attention_score != null ? '%' : ''}</div></div>
+                  </div>
+                  <div class="history-actions">
+                    <button class="btn btn-primary" data-lab="${labId}" data-computer="${computerId}" data-session="${session.sessionId}">View session</button>
+                  </div>
+                </div>`).join('')}
             </div>`).join('')}
-        </div>`).join('')}
-    </div>`).join('<div class="section-divider"></div>');
+        </div>
+      </details>`;
+  }).join('');
 
   container.querySelectorAll('button[data-session]').forEach((btn) => {
     btn.addEventListener('click', () => openSession(btn.dataset.lab, btn.dataset.computer, btn.dataset.session));
@@ -371,6 +438,33 @@ function buildPathByTime(points, innerWidth, innerHeight, tMin, tMax, yAccessor,
     const y = innerHeight - (clamped / maxY) * innerHeight;
     return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
   }).join(' ');
+}
+
+function normaliseGaze(rawGaze, fallback = 'UNCALIBRATED') {
+  if (rawGaze === null || rawGaze === undefined || rawGaze === '') return fallback;
+  const key = String(rawGaze).trim().replace(/[_\s]+/g, '-').toUpperCase();
+  const map = {
+    'TOP-LEFT':     'TOP-LEFT',
+    'TOP-RIGHT':    'TOP-RIGHT',
+    'BOTTOM-LEFT':  'BOTTOM-LEFT',
+    'BOTTOM-RIGHT': 'BOTTOM-RIGHT',
+    'CENTER':       'CENTER',
+    'CENTRE':       'CENTER',
+    'MIDDLE':       'CENTER',
+    'UNKNOWN':      fallback,
+    'NONE':         fallback,
+    'NO-FACE':      fallback,
+    'UNCALIBRATED': fallback,
+  };
+  return map[key] ?? fallback;
+}
+
+function getFaceGaze(point) {
+  const face = point?.face || {};
+  return normaliseGaze(
+    face.gaze_quadrant ?? face.gazeQuadrant ?? face.gaze_state ?? face.gazeState ?? face.direction,
+    'UNCALIBRATED'
+  );
 }
 
 function renderTimelineChart(timeline, events = []) {
@@ -471,30 +565,30 @@ function renderTimelineChart(timeline, events = []) {
         <path d="${wcPath}" fill="none" stroke="#b7791f" stroke-width="2" stroke-dasharray="6 4" />
       </g>
 
-      <!-- Gaze quadrant strip (thin coloured bar above x-axis) -->
+      <!-- Gaze quadrant strip (coloured bar below x-axis) -->
       ${(() => {
         const GAZE_COLOURS = {
-          'Top-Left':     '#7c3aed44',
-          'Top-Right':    '#0891b244',
-          'Bottom-Left':  '#be185d44',
-          'Bottom-Right': '#65a30d44',
-          'CENTER':       '#b7791f44',
-          'UNCALIBRATED': '#cfd8ea55',
+          'TOP-LEFT':     '#3b82f6',  // blue    — top-left like "home/start"
+          'TOP-RIGHT':    '#8b5cf6',  // violet  — top-right like "settings/menus"
+          'BOTTOM-LEFT':  '#06b6d4',  // cyan    — bottom-left
+          'BOTTOM-RIGHT': '#10b981',  // emerald — bottom-right like "confirm/next"
+          'CENTER':       '#f59e0b',  // amber   — centre focus
+          'UNCALIBRATED': '#e2e8f0',  // light grey
         };
-        const STRIP_Y = innerHeight - 8;
-        const STRIP_H = 6;
+        const STRIP_Y = innerHeight + 2;
+        const STRIP_H = 14;
         let gazeSegs = [];
         let cur = null;
         timeline.forEach((p, i) => {
-          const g = p.face?.gaze_quadrant || 'UNCALIBRATED';
+          const g = getFaceGaze(p);
           if (g !== cur?.gaze) {
             if (cur) cur.x2 = toX(p.timestamp);
-            cur = { gaze: g, x1: toX(p.timestamp), x2: innerWidth };
+            cur = { gaze: g, x1: i === 0 ? 0 : toX(p.timestamp), x2: innerWidth };
             gazeSegs.push(cur);
           }
           if (i === timeline.length - 1 && cur) cur.x2 = innerWidth;
         });
-        return gazeSegs.map(s => `<rect x="${s.x1.toFixed(1)}" y="${STRIP_Y}" width="${Math.max(0, s.x2 - s.x1).toFixed(1)}" height="${STRIP_H}" fill="${GAZE_COLOURS[s.gaze] || '#cfd8ea55'}" />`).join('');
+        return gazeSegs.map(s => `<rect x="${s.x1.toFixed(1)}" y="${STRIP_Y}" width="${Math.max(0, s.x2 - s.x1).toFixed(1)}" height="${STRIP_H}" fill="${GAZE_COLOURS[s.gaze] || '#e2e8f0'}" />`).join('');
       })()}
 
       <!-- Hover dots -->
@@ -510,7 +604,7 @@ function renderTimelineChart(timeline, events = []) {
             frustration: p.face?.frustration_score,
             wrong: p.browser?.wrong_click,
             llm: p.llm?.llm_activated,
-            gaze: p.face?.gaze_quadrant,
+            gaze: getFaceGaze(p),
           }).replace(/'/g, '&apos;')}' />`;
       }).join('')}
 
@@ -687,7 +781,7 @@ document.getElementById('session-modal').addEventListener('click', (event) => {
 });
 
 loadDashboard();
-setInterval(loadDashboard, 30000);
+// setInterval(loadDashboard, 30000);
 </script>
 </body>
 </html>
