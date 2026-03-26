@@ -39,7 +39,6 @@ _GAZE_COLLECT_SECS = 5.0
 
 _FONT = cv2.FONT_HERSHEY_SIMPLEX
 
-WARMUP = 5     # benchmark warmup after calibration (s)
 MEASURE = 30    # benchmark measurement window (s)
 DEBUG = True   # show debug info and visualization during calibration and benchmarking
 
@@ -203,7 +202,7 @@ if __name__ == "__main__":
     t_measure_start = None
     t_prev = time.perf_counter()
 
-    print(f"[Benchmark] Warming up ({WARMUP}s)...")
+    print(f"[Benchmark] Measuring for {MEASURE}s...")
 
     # ---------------------------------------------------------------------------
     # BENCHMARK LOOP
@@ -277,25 +276,21 @@ if __name__ == "__main__":
         total_ms = (t_frame_end - t_frame_start) * 1000
         fps = 1.0 / max(t_frame_end - t_prev, 1e-9)
         t_prev = t_frame_end
-        bench_elapsed = t_frame_end - t_start
+        if t_measure_start is None:
+            t_measure_start = t_frame_end
 
-        if bench_elapsed >= WARMUP:
-            if t_measure_start is None:
-                t_measure_start = t_frame_end
-                print(f"[Benchmark] Measuring for {MEASURE}s...")
+        fps_list.append(fps)
+        lat_total_list.append(total_ms)
+        lat_capture_list.append(capture_ms)
+        lat_facemesh_list.append(facemesh_ms)
+        lat_headpose_list.append(headpose_ms)
+        lat_eye_list.append(eye_ms)
+        lat_face_list.append(face_ms)
+        cpu_list.append(psutil.cpu_percent(interval=None))
+        ram_list.append(psutil.virtual_memory().percent)
 
-            fps_list.append(fps)
-            lat_total_list.append(total_ms)
-            lat_capture_list.append(capture_ms)
-            lat_facemesh_list.append(facemesh_ms)
-            lat_headpose_list.append(headpose_ms)
-            lat_eye_list.append(eye_ms)
-            lat_face_list.append(face_ms)
-            cpu_list.append(psutil.cpu_percent(interval=None))
-            ram_list.append(psutil.virtual_memory().percent)
-
-            if (t_frame_end - t_measure_start) >= MEASURE:
-                break
+        if (t_frame_end - t_measure_start) >= MEASURE:
+            break
 
         # if DEBUG:
         #     cv2.imshow("Benchmark: AFTER (CameraStream threaded)", frame)
