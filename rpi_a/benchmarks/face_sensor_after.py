@@ -238,13 +238,13 @@ if __name__ == "__main__":
         frame = cv2.flip(frame, 1)
 
         headpose_ms = eye_ms = face_ms = 0.0
-        now = time.perf_counter()
+        now_wall = time.time()
 
         if results.multi_face_landmarks:
             lm = results.multi_face_landmarks[0].landmark
 
-            dt = now - face_sensor._last_frame_time
-            elapsed = now - face_sensor._analytics_start
+            dt = now_wall - face_sensor._last_frame_time
+            elapsed = now_wall - face_sensor._analytics_start
 
             # --- 3. HeadPose ---
             t0 = time.perf_counter()
@@ -264,7 +264,7 @@ if __name__ == "__main__":
             t1 = time.perf_counter()
             face_ms = (t1 - t0) * 1000
 
-            face_sensor._last_frame_time = time.perf_counter()
+            face_sensor._last_frame_time = time.time()
 
             # if DEBUG:
             #     cv2.putText(frame, f"Gaze: {gaze_quadrant}", (10, 28), _FONT, 0.6, (0, 255, 255), 2)
