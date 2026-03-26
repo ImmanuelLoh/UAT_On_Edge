@@ -274,10 +274,10 @@ class InsightPanel(QWidget):
         self.col_b.addWidget(DataRow("Emotion",     str(parsed["emotion"]),           emotion_color(parsed["emotion"])))
         self.col_b.addWidget(DataRow("Frustration", str(parsed["frustration_score"]), score_color(parsed["frustration_score"])))
         self.col_b.addWidget(DataRow("Attention",   str(parsed["attention_score"])))
+        self.col_b.addWidget(DataRow("Direction", str(parsed["direction"])))
 
         self.col_b.addSpacing(12)
         self.col_b.addWidget(SectionHeader("Gaze"))
-        self.col_b.addWidget(DataRow("Direction", str(parsed["direction"])))
         self.col_b.addWidget(DataRow("Quadrant",  str(parsed["gaze_quadrant"])))
         self.col_b.addStretch()
 
@@ -366,8 +366,8 @@ class InsightPanel(QWidget):
         self.col_a.addWidget(SectionHeader("Mouse"))
         self.col_a.addWidget(DataRow("Avg Idle (s)",  str(parsed["avg_idle_time"])))
         self.col_a.addWidget(DataRow("Peak Idle (s)", str(parsed["peak_idle_time"])))
-        self.col_a.addWidget(DataRow("Avg CPS",       str(parsed["avg_cps"])))
-        self.col_a.addWidget(DataRow("Top Quadrant",  str(parsed["dominant_quadrant"])))
+        # self.col_a.addWidget(DataRow("Avg CPS",       str(parsed["avg_cps"])))
+        # self.col_a.addWidget(DataRow("Top Quadrant",  str(parsed["dominant_quadrant"])))
         self.col_a.addStretch()
 
         # Column B — Biometrics + gaze
