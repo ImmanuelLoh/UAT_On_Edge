@@ -23,6 +23,7 @@ class GazeCalibrator:
         self.collected_pose = {}  # head pose samples (yaw, pitch)
         self.boundaries = None
         self.quadrant_bounds = None  # pixel boundaries for each quadrant
+        self._fused_centers = None  # fused (gaze+pose) centres per corner, for NN classify
         self.current_idx = 0
         self.collecting = False
         self.collect_start = None
@@ -169,8 +170,29 @@ class GazeCalibrator:
             "gaze_y_max": center_gaze_y + gaze_y_half * 0.25,
         }
         
+        # Pre-compute fused centres (iris + head pose) for each corner.
+        # Used by classify() for nearest-neighbour comparison so that both
+        # the live signal and the reference points are in the same fused space.
+        GAZE_WEIGHT = 0.7
+        HEAD_WEIGHT = 0.3
+        gaze_x_range = [left_x, right_x]
+        gaze_y_range = [top_y, bot_y]
+        yaw_range  = self.pose_boundaries["yaw_range"]
+        pitch_range = self.pose_boundaries["pitch_range"]
+        self._fused_centers = {}
+        for label in ["TOP-LEFT", "TOP-RIGHT", "BOTTOM-LEFT", "BOTTOM-RIGHT"]:
+            gx, gy = self.collected_gaze[label]
+            cal_yaw, cal_pitch = self.collected_pose[label]
+            norm_yaw   = np.interp(cal_yaw,   yaw_range,   gaze_x_range)
+            norm_pitch = np.interp(cal_pitch, pitch_range, gaze_y_range)
+            self._fused_centers[label] = (
+                GAZE_WEIGHT * gx + HEAD_WEIGHT * norm_yaw,
+                GAZE_WEIGHT * gy + HEAD_WEIGHT * norm_pitch,
+            )
+
         print(f"Center zone: {self.center_zone}")
         print(f"Gaze boundaries: {self.boundaries}")
+        print(f"Fused centres: {self._fused_centers}")
         print(f"Screen: {self.screen_w}x{self.screen_h}")
         print(f"Quadrant pixel bounds: {self.quadrant_bounds}")
 
@@ -180,7 +202,7 @@ class GazeCalibrator:
         Returns (quadrant_label, avg_gaze_x, avg_gaze_y, pixel_x, pixel_y).
         pixel_x/y is the estimated gaze point on screen.
         """
-        if self.boundaries is None:
+        if self.boundaries is None or self._fused_centers is None:
             return "UNCALIBRATED", 0, 0, 0, 0
 
         avg_gaze_x = (lx + rx) / 2.0
@@ -235,14 +257,10 @@ class GazeCalibrator:
             center_zone["gaze_y_min"] <= fused_y <= center_zone["gaze_y_max"]):
             quadrant = "CENTER"
         else:
-            # Nearest-neighbour: pick the corner whose calibrated center is closest.
-            # This handles asymmetric iris displacement ranges (e.g. bottom-left
-            # produces less downward Y signal when the eye is already at a horizontal
-            # extreme), which a single global y_split threshold cannot handle.
-            corners = ["TOP-LEFT", "TOP-RIGHT", "BOTTOM-LEFT", "BOTTOM-RIGHT"]
+            # Nearest-neighbour in fused space: compare (fused_x, fused_y) against
+            # pre-computed fused centres so both sides use the same coordinate space.
             best, best_dist = None, float("inf")
-            for label in corners:
-                cx, cy = self.collected_gaze[label]
+            for label, (cx, cy) in self._fused_centers.items():
                 d = (fused_x - cx) ** 2 + (fused_y - cy) ** 2
                 if d < best_dist:
                     best_dist = d
