@@ -196,11 +196,17 @@ class GazeCalibrator:
         # spatial ordering. If not, calibration data is bad (participant wasn't
         # looking at the right spot) and NN classify will be systematically wrong.
         fc = self._fused_centers
+        # Check consistent spatial ordering without assuming sign direction
+        # (works regardless of whether the webcam outputs a mirrored frame).
+        # LEFT cols must be on the same side of RIGHT cols for both row pairs.
+        # TOP rows must be on the same side of BOTTOM rows for both col pairs.
+        x_top = fc["TOP-LEFT"][0] - fc["TOP-RIGHT"][0]
+        x_bot = fc["BOTTOM-LEFT"][0] - fc["BOTTOM-RIGHT"][0]
+        y_lft = fc["TOP-LEFT"][1] - fc["BOTTOM-LEFT"][1]
+        y_rgt = fc["TOP-RIGHT"][1] - fc["BOTTOM-RIGHT"][1]
         valid = (
-            fc["TOP-LEFT"][0] > fc["TOP-RIGHT"][0] and # LEFT cols have higher X
-            fc["BOTTOM-LEFT"][0] > fc["BOTTOM-RIGHT"][0] and
-            fc["TOP-LEFT"][1] < fc["BOTTOM-LEFT"][1] and # TOP rows have lower Y
-            fc["TOP-RIGHT"][1] < fc["BOTTOM-RIGHT"][1]
+            x_top * x_bot > 0 and  # LEFT is consistently to one side of RIGHT
+            y_lft * y_rgt > 0 # TOP is consistently above/below BOTTOM
         )
         if not valid:
             print("[GazeCalibrator] WARNING: fused centres failed spatial sanity check - "
