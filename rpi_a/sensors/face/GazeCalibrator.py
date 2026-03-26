@@ -22,6 +22,8 @@ class GazeCalibrator:
         self.collected_gaze = {}  # gaze samples
         self.collected_pose = {}  # head pose samples (yaw, pitch)
         self.boundaries = None
+        self.pose_boundaries = None
+        self.center_zone = None
         self.quadrant_bounds = None  # pixel boundaries for each quadrant
         self._fused_centers = None  # fused (gaze+pose) centres per corner, for NN classify
         self.current_idx = 0
@@ -190,6 +192,33 @@ class GazeCalibrator:
                 GAZE_WEIGHT * gy + HEAD_WEIGHT * norm_pitch,
             )
 
+        # Sanity-check fused centres: the four corners must maintain expected
+        # spatial ordering. If not, calibration data is bad (participant wasn't
+        # looking at the right spot) and NN classify will be systematically wrong.
+        fc = self._fused_centers
+        valid = (
+            fc["TOP-LEFT"][0] > fc["TOP-RIGHT"][0] and # LEFT cols have higher X
+            fc["BOTTOM-LEFT"][0] > fc["BOTTOM-RIGHT"][0] and
+            fc["TOP-LEFT"][1] < fc["BOTTOM-LEFT"][1] and # TOP rows have lower Y
+            fc["TOP-RIGHT"][1] < fc["BOTTOM-RIGHT"][1]
+        )
+        if not valid:
+            print("[GazeCalibrator] WARNING: fused centres failed spatial sanity check - "
+                  "calibration data is inconsistent. Resetting for retry.")
+            self.collected_gaze = {}
+            self.collected_pose = {}
+            self.boundaries = None
+            self.pose_boundaries = None
+            self.center_zone = None
+            self.quadrant_bounds = None
+            self._fused_centers = None
+            self.current_idx = 0
+            self.collecting = False
+            self.collect_start = None
+            self.current_samples = []
+            self.done = False
+            return  # skip the prints; calibration loop will restart
+
         print(f"Center zone: {self.center_zone}")
         print(f"Gaze boundaries: {self.boundaries}")
         print(f"Fused centres: {self._fused_centers}")
@@ -202,7 +231,8 @@ class GazeCalibrator:
         Returns (quadrant_label, avg_gaze_x, avg_gaze_y, pixel_x, pixel_y).
         pixel_x/y is the estimated gaze point on screen.
         """
-        if self.boundaries is None or self._fused_centers is None:
+        if (self.boundaries is None or self.pose_boundaries is None
+                or self.center_zone is None or self._fused_centers is None):
             return "UNCALIBRATED", 0, 0, 0, 0
 
         avg_gaze_x = (lx + rx) / 2.0
