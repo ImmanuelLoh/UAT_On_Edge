@@ -135,22 +135,21 @@ class UATMonitor:
                 "totalDuration": task.total_duration,
             }
 
-        prev_task_index = self.active_task_index - 1 
-        prev_correct_count = 0
-        prev_wrong_count = 0
-        if prev_task_index > 0:
-            prev_task = self.tasks[prev_task_index]
-            prev_correct_count = prev_task.correct_count
-            prev_wrong_count = prev_task.wrong_count
-            prev_task.reset_count()
+        # prev_task_index = self.active_task_index - 1 
+        # prev_correct_count = 0
+        # prev_wrong_count = 0
+        # if prev_task_index > 0:
+        #     prev_task = self.tasks[prev_task_index]
+        #     prev_correct_count = prev_task.correct_count
+        #     prev_wrong_count = prev_task.wrong_count
+        #     prev_task.reset_count()
         
         metrics["currentTask"] = {
             "taskName": current_task.task_name,
-            "correct_click": (current_task.correct_count + prev_correct_count),
-            "wrong_click": (current_task.wrong_count + prev_wrong_count),
+            "correct_click": current_task.correct_count,
+            "wrong_click": current_task.wrong_count,
         }
         
-        current_task.reset_count()
         return metrics
 
     def get_current_window_stats(self):
