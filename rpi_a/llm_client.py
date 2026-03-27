@@ -6,7 +6,7 @@ def request_assistance(context_summary: dict, mode: str = "proactive") -> dict:
     payload["mode"] = mode
 
     try:
-        response = requests.post(LAPTOP_LLM_URL, json=payload, timeout=20)
+        response = requests.post(LAPTOP_LLM_URL, json=payload, timeout=5)
         response.raise_for_status()
         data = response.json()
         data["llm_timeout"] = False

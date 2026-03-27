@@ -110,7 +110,7 @@ def assist():
             "stream": False,
             "options": {"temperature": 0.1, "top_p": 0.6},
         },
-        timeout=20,
+        timeout=5,
     )
 
     try:
