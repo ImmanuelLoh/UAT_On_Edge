@@ -25,6 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--broker-port", type=int, default=1883)
     parser.add_argument("--raw-topic", default="uat/raw")
     parser.add_argument("--summary-topic", default="uat/summary")
+    parser.add_argument("--replay-topic", default="uat/replay")
     return parser.parse_args()
 
 
@@ -67,6 +68,8 @@ def main():
         args.raw_topic,
         "--summary-topic",
         args.summary_topic,
+        "--replay-topic",
+        args.replay_topic,
         "--streams",
         *stream_args,
     ]

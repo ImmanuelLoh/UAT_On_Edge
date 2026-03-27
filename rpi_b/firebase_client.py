@@ -135,9 +135,11 @@ class FirebaseClient:
         Flushes a chunk to Firestore every CHUNK_INTERVAL seconds.
         Automatically starts a new session on first call.
         """
+        incoming_session_id = payload.get("session_id")
+
         with self._session_lock:
             if not self.session_id:
-                self._start_session_async()
+                self._start_session_async(session_id=incoming_session_id)
 
         enriched = {
             "lab_id":      self.lab_id,
@@ -475,9 +477,8 @@ class FirebaseClient:
     # Internal — session management
     # ------------------------------------------------------------------
 
-    def _start_session_async(self) -> None:
-        """Assigns session_id immediately; writes meta doc in background."""
-        self.session_id = datetime.now(SGT).strftime("%Y-%m-%d_%H-%M-%S")
+    def _start_session_async(self, session_id: str | None = None) -> None:
+        self.session_id = session_id or datetime.now(SGT).strftime("%Y-%m-%d_%H-%M-%S")
         self._local_log = (
             self.local_buffer_dir
             / f"{self.lab_id}_{self.computer_id}_{self.session_id}.jsonl"

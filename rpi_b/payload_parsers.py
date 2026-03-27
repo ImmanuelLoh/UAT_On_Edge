@@ -79,6 +79,7 @@ def parse_summary_payload(data: dict) -> dict | None:
             "session_active":  meta.get("session_active", False),
             "duration":        f"{mins}m {secs:02d}s",
             "total_snapshots": meta.get("total_snapshots", "—"),
+            "session_id":     meta.get("session_id", "—"),
             # Face
             "avg_frustration":  face.get("avg_frustration_score", "—"),
             "peak_frustration": face.get("peak_frustration_score", "—"),
