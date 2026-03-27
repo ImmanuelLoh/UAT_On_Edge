@@ -120,7 +120,7 @@ class MQTTClient:
                 "llm_activated": sensor_state.get("llm", {}).get("llm_activated", False),
                 "last_role": sensor_state.get("llm", {}).get("last_role"),
                 "last_message": sensor_state.get("llm", {}).get("last_message", ""),
-                "timeout": sensor_state.get("llm", {}).get("timeout", False),
+                "llm_timeout": sensor_state.get("llm", {}).get("llm_timeout", False),
             },
             "alerts": {
                 "frustration": sensor_state.get("alerts", {}).get("frustration", False)

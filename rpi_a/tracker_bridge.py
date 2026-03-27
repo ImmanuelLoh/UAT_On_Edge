@@ -45,17 +45,13 @@ class SessionRecorder:
     def _safe_max(self, values):
         clean = [v for v in values if isinstance(v, (int, float))]
         return round(max(clean), 4) if clean else 0.0
-
+    
     def _get_frustration(self):
         with self._lock:
-            snapshots = list(self._snapshots)[:60]
-        
-        count = 0
-        for s in snapshots:
-            if s["face"]["emotion"] == "FRUSTRATED":
-                count += 1
+            snapshots = list(self._snapshots)[-60:]
 
-        return True if count >= 20 else False
+        count = sum(1 for s in snapshots if s["face"]["emotion"] == "FRUSTRATED")
+        return count >= 20
     
     def build_summary(self) -> dict:
         with self._lock:
