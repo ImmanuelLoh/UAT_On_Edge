@@ -12,6 +12,7 @@
 #   chmod +x rpi_a/benchmarks/run_perf.sh
 #   sudo ./rpi_a/benchmarks/run_perf.sh before
 #   sudo ./rpi_a/benchmarks/run_perf.sh after
+#   sudo ./rpi_a/benchmarks/run_perf.sh optimized
 #   sudo ./rpi_a/benchmarks/run_perf.sh e2e <RECEIVER_IP> <LABEL>
 
 MODE=$1
@@ -70,6 +71,26 @@ case "$MODE" in
     ;;
 
   # ---------------------------------------------------------------------------
+  # MODULE LEVEL -- OPTIMIZED (CameraStream threaded + 30 FPS cap)
+  # ---------------------------------------------------------------------------
+  optimized)
+    echo ""
+    echo "=================================================="
+    echo " perf stat -- OPTIMIZED (face_sensor_optimized)"
+    echo "=================================================="
+    echo "CameraStream threaded + 30 FPS cap to reduce CPU usage."
+    echo "Running for ~50s (calibration + 5s warmup + 30s measure)..."
+    echo "Complete calibration steps when prompted."
+    echo ""
+    perf stat \
+      -e $PERF_EVENTS \
+      -- "$PYTHON" rpi_a/benchmarks/face_sensor_optimized.py \
+      2>&1 | tee "$RESULTS_DIR/perf_optimized.txt"
+    echo ""
+    echo "Results saved to $RESULTS_DIR/perf_optimized.txt"
+    ;;
+
+  # ---------------------------------------------------------------------------
   # E2E -- full tracker_bridge system
   # ---------------------------------------------------------------------------
   e2e)
@@ -97,11 +118,12 @@ case "$MODE" in
     ;;
 
   *)
-    echo "Usage: sudo ./rpi_a/benchmarks/run_perf.sh [before|after|e2e <IP> <LABEL>]"
+    echo "Usage: sudo ./rpi_a/benchmarks/run_perf.sh [before|after|optimized|e2e <IP> <LABEL>]"
     echo ""
-    echo "  before  -- profiles face_sensor_before.py (blocking cap.read)"
-    echo "  after   -- profiles face_sensor_after.py (CameraStream threaded)"
-    echo "  e2e     -- profiles full tracker_bridge system"
+    echo "  before     -- profiles face_sensor_before.py (blocking cap.read)"
+    echo "  after      -- profiles face_sensor_after.py (CameraStream threaded)"
+    echo "  optimized  -- profiles face_sensor_optimized.py (CameraStream + 30 FPS cap)"
+    echo "  e2e        -- profiles full tracker_bridge system"
     exit 1
     ;;
 esac
