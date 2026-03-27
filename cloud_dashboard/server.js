@@ -28,7 +28,7 @@ app.use(express.static(__dirname));
 const LAB_IDS = ["Lab1", "Lab2", "Lab3"];
 
 const LAB_COMPUTERS = {
-  Lab1: ["Computer_1", "Computer_2", "Computer_3"],
+  Lab1: ["CrystalDemoReliability", "Computer_1", "Computer_2", "Computer_3"],
   Lab2: ["Computer1", "Computer2", "Computer3"],
   Lab3: ["Computer1", "Computer2", "Computer3"],
 };
