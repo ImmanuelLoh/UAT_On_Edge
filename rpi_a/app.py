@@ -11,6 +11,14 @@ from llm_client import request_assistance
 # from sensors.simulated_face import get_face_state
 # from sensors.simulated_task import get_task_state
 
+# For profiling
+import uuid
+from profiler_utils import RollingProfiler, Timer
+profiler = RollingProfiler(max_samples=1000)
+
+# Check if duplicate calls are made to LLM
+last_llm_call_key = None
+
 app = Flask(__name__)
 
 context_buffer = ContextBuffer()
@@ -172,13 +180,18 @@ def reset_assistant_for_new_task():
         llm_state["llm_activated"] = False
         llm_state["last_role"] = None
         llm_state["last_message"] = ""
-        llm_state["timeout"] = False
+        llm_state["llm_timeout"] = False
 
 
 def reevaluate_assistant():
     global assistant_dismissed_until
+    
+    global last_llm_call_key
 
-    summary = context_buffer.summarize()
+    profiler.incr("app.reevaluate.calls")
+
+    with Timer(profiler, "app.context_buffer.summarize.initial"):
+        summary = context_buffer.summarize()
 
     if not is_assistant_allowed(summary):
         latest_ui_state["assistant_open"] = False
@@ -190,6 +203,7 @@ def reevaluate_assistant():
         latest_ui_state["score"] = 0.0
         latest_ui_state["reason"] = None
 
+        profiler.incr("app.reevaluate.assistant_disallowed")
         return {
             "triggered": False,
             "nudged": False,
@@ -198,7 +212,8 @@ def reevaluate_assistant():
             "cooldown": False,
         }
 
-    result = trigger_engine.evaluate(summary)
+    with Timer(profiler, "app.trigger_engine.evaluate"):
+        result = trigger_engine.evaluate(summary)
 
     # Turn nudge on (do not turn it off automatically)
     if result["nudged"]:
@@ -212,13 +227,31 @@ def reevaluate_assistant():
         # and not latest_ui_state["chat_mode"] # Only allow proactive message when chat is CLOSED not minimised
         and time.time() > assistant_dismissed_until
     ):
-        # Inject context into LLM Payload
-        summary = context_buffer.summarize()
-        summary["page_context"] = get_page_context(summary)
-        summary["trigger_reason"] = latest_ui_state.get("reason")
-        # summary["trigger_score"] = latest_ui_state.get("score") # Don't push score to LLM (use it as a trigger ONLY)
+        profiler.incr("app.llm.proactive_attempts")
+        with Timer(profiler, "app.context_buffer.summarize.before_llm"):
+            # Inject context into LLM Payload
+            summary = context_buffer.summarize()
+        
+        with Timer(profiler, "app.page_context.build"):
+            summary["page_context"] = get_page_context(summary)
+            summary["trigger_reason"] = latest_ui_state.get("reason")
+            # summary["trigger_score"] = latest_ui_state.get("score") # Don't push score to LLM (use it as a trigger ONLY)
 
-        llm_reply = request_assistance(summary, mode="proactive")
+        # Check for duplicate calls to LLM
+        call_key = (
+            summary.get("task"),
+            latest_ui_state.get("reason"),
+        )
+
+        if call_key == last_llm_call_key:
+            profiler.incr("app.llm.same_task_same_reason_repeat")
+
+        last_llm_call_key = call_key
+
+        with Timer(profiler, "app.request_assistance.total"):
+            summary["request_id"] = str(uuid.uuid4())
+            llm_reply = request_assistance(summary, mode="proactive")
+            
         reply_text = llm_reply.get(
             "assistant_message", ""
         ).strip() or build_fallback_hint(summary)
@@ -230,6 +263,7 @@ def reevaluate_assistant():
         latest_ui_state["assistant_open"] = True
         latest_ui_state["proactive_message"] = reply_text
         latest_ui_state["assistant_message"] = reply_text
+        profiler.incr("app.llm.proactive_success")
 
     return result
 
@@ -308,7 +342,12 @@ def browser_event():
         summary["page_context"] = get_page_context(summary)
         summary["trigger_reason"] = latest_ui_state.get("reason")
 
-        llm_reply = request_assistance(summary, mode="chat")
+        with Timer(profiler, "app.request_assistance.chat_total"):
+            summary["request_id"] = str(uuid.uuid4())
+            llm_reply = request_assistance(summary, mode="chat")
+            
+        profiler.incr("app.llm.chat_calls")
+        
         reply_text = llm_reply.get(
             "assistant_message", ""
         ).strip() or build_fallback_hint(summary)
@@ -384,6 +423,7 @@ def chat_reply():
 
     latest_ui_state["chat_mode"] = True
 
+    summary["request_id"] = str(uuid.uuid4())
     llm_reply = request_assistance(summary, mode="chat")
     reply_text = llm_reply.get("assistant_message", "No response.")
     
@@ -422,6 +462,10 @@ def session_complete_status():
     with session_complete_lock:
         return jsonify({"complete": session_complete_flag["fired"]})
 # ====================================================
+
+@app.route("/api/profiler_stats", methods=["GET"])
+def profiler_stats():
+    return jsonify(profiler.snapshot())
 
 
 if __name__ == "__main__":
