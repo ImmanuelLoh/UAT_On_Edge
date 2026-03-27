@@ -14,14 +14,14 @@ def request_assistance(context_summary: dict, mode: str = "proactive") -> dict:
     
     except requests.Timeout:
         return {
-            "assistant_message": "Assistant timed out.",
+            "assistant_message": "",
             "source": "timeout",
             "llm_timeout": True
         }
     
     except Exception as e:
         return {
-            "assistant_message": f"Assistant unavailable: {e}",
+            "assistant_message": "",
             "source": "fallback",
             "llm_timeout": True
         }
