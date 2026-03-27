@@ -142,10 +142,11 @@ class MQTTClient:
         print(f"[MQTTClient] Replay complete for session {session_id}")
         return total
 
-    def build_payload(self, label, sensor_state):
+    def build_payload(self, label, sensor_state, session_id):
         data = {
             "label": label,
             "timestamp": sensor_state.get("timestamp"),
+            "session_id": session_id,
             
             "browser": {
                 "task": sensor_state.get("browser", {}).get("task", "unknown"),

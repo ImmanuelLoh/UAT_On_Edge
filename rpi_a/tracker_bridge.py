@@ -54,7 +54,7 @@ class SessionRecorder:
         count = sum(1 for s in snapshots if s["face"]["emotion"] == "FRUSTRATED")
         return count >= 20
     
-    def build_summary(self) -> dict:
+    def build_summary(self, session_id: str) -> dict:
         with self._lock:
             snapshots = list(self._snapshots)
 
@@ -142,6 +142,7 @@ class SessionRecorder:
                 "session_active": False,
                 "start_time": round(self._start_time, 2),
                 "end_time": round(end_time, 2),
+                "session_id": session_id,
                 "duration_seconds": duration,
                 "total_snapshots": len(snapshots),
             },
@@ -537,7 +538,8 @@ _mqtt_client_ref: "MQTTClient | None" = None
 _mqtt_client_ref_lock = threading.Lock()
 
 session_recorder = SessionRecorder(label=LABEL)
-
+SGT = timezone(timedelta(hours=8))
+session_id = datetime.now(SGT).strftime("%Y-%m-%d_%H-%M-%S")
 
 # MQTT Loop
 def mqtt_publish_loop():
@@ -598,7 +600,7 @@ def session_summary_loop():
             if data.get("complete"):
                 print("[Summary Loop] Session complete detected — building summary...")
  
-                summary = session_recorder.build_summary()
+                summary = session_recorder.build_summary(session_id)
                 summary_payload = json.dumps(summary)
  
                 with _mqtt_client_ref_lock:
@@ -616,15 +618,7 @@ def session_summary_loop():
                 # session_recorder._snapshots is the complete in-memory list.
                 with session_recorder._lock:
                     snapshots = list(session_recorder._snapshots)
- 
-                session_id = summary.get("meta", {}).get("start_time")
 
-                # Use the same timestamp-based session_id format as FirebaseClient
-                # so RPI_B can correlate the replay to the right Firestore session.
-                SGT = timezone(timedelta(hours=8))
-                start_ts = summary.get("meta", {}).get("start_time", 0)
-                session_id = datetime.fromtimestamp(start_ts, tz=SGT).strftime("%Y-%m-%d_%H-%M-%S")
- 
                 if snapshots:
                     fragments_sent = client.publish_replay(
                         session_id=session_id,
