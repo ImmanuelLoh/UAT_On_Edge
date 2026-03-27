@@ -48,14 +48,14 @@ class SessionRecorder:
 
     def _get_frustration(self):
         with self._lock:
-            snapshots = list(self._snapshots)[:120]
+            snapshots = list(self._snapshots)[:60]
         
         count = 0
         for s in snapshots:
             if s["face"]["emotion"] == "FRUSTRATED":
                 count += 1
 
-        return True if count >= 72 else False
+        return True if count >= 20 else False
     
     def build_summary(self) -> dict:
         with self._lock:
