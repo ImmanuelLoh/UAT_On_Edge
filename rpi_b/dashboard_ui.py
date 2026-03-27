@@ -417,32 +417,20 @@ class InsightPanel(QWidget):
 
         # Column C — LLM summary
         self.col_c.addWidget(SectionHeader("AI Assistant"))
-        act_count = parsed["llm_activations"]
+
+        activation_by_task = parsed.get("llm", {}).get("activation_by_task", {}) or {}
+        act_count = sum(1 for activated in activation_by_task.values() if activated)
         act_color = ACCENT_GREEN if act_count > 0 else TEXT_MUTED
+
         self.col_c.addWidget(DataRow("Activations", str(act_count), act_color))
 
-        messages = parsed["assistant_messages"]
-        if messages:
+        if activation_by_task:
             self.col_c.addSpacing(6)
-            self.col_c.addWidget(SectionHeader(f"Messages ({len(messages)})"))
-            for msg in messages:
-                msg_lbl = QLabel(f"• {msg}")
-                msg_lbl.setWordWrap(True)
-                msg_lbl.setStyleSheet(f"""
-                    color: {TEXT_PRIMARY};
-                    font-size: 12px;
-                    font-family: {FONT_SANS};
-                    background: {LIGHT_BG};
-                    border-left: 3px solid {ACCENT_BLUE};
-                    border-radius: 4px;
-                    padding: 6px 8px;
-                    margin-bottom: 4px;
-                """)
-                self.col_c.addWidget(msg_lbl)
-        else:
-            no_msg = QLabel("No assistant messages this session.")
-            no_msg.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 12px; font-family: {FONT_SANS};")
-            self.col_c.addWidget(no_msg)
+            self.col_c.addWidget(SectionHeader("Activated Tasks"))
+            for task_name, activated in activation_by_task.items():
+                status_text = "Activated" if activated else "Not activated"
+                status_color = ACCENT_GREEN if activated else TEXT_MUTED
+                self.col_c.addWidget(DataRow(task_name, status_text, status_color))
 
         self.col_c.addStretch()
 

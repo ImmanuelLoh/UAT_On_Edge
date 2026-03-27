@@ -96,8 +96,7 @@ def parse_summary_payload(data: dict) -> dict | None:
             "total_wrong_clicks":   brow.get("total_wrong_clicks", "—"),
             "total_correct_clicks": brow.get("total_correct_clicks", "—"),
             # LLM
-            "llm_activations":    llm.get("total_activations", 0),
-            "assistant_messages": llm.get("assistant_messages", []),
+            "llm_activations":    llm.get("activation_by_task", {})
         }
     except Exception as e:
         logger.warning(f"[SummaryParser] Failed to parse summary payload: {e}")
