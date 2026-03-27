@@ -573,7 +573,7 @@ def mqtt_publish_loop():
             session_recorder.record(snapshot)
 
             # print("[4] mqtt snapshot face:", snapshot["face"])
-            payload = mqtt_client.build_payload(label, snapshot)
+            payload = mqtt_client.build_payload(label, snapshot, session_id)
             mqtt_client.publish_tick(payload)
         except Exception as e:
             print("[MQTT Publish Error]", e)
