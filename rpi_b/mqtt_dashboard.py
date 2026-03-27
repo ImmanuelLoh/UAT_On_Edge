@@ -35,6 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--broker-port",   type=int)
     parser.add_argument("--raw-topic")
     parser.add_argument("--summary-topic")
+    parser.add_argument("--replay-topic")
     parser.add_argument("--streams",       nargs="+")
     return parser.parse_args()
 
@@ -80,7 +81,9 @@ def main():
             signals.connection_status.emit("connected")
             client.subscribe(args.raw_topic)
             client.subscribe(args.summary_topic)
-            logger.info(f"[MQTT] Subscribed to {args.raw_topic} and {args.summary_topic}")
+            client.subscribe(args.replay_topic)
+            logger.info(f"[MQTT] Subscribed to {args.raw_topic}, "
+                        f"{args.summary_topic}, {args.replay_topic}")
         else:
             error_map = {
                 1: "incorrect protocol version",
@@ -102,27 +105,61 @@ def main():
             signals.connection_status.emit(f"reconnecting… (rc={rc})")
 
     def on_message(client, userdata, msg):
-        raw_payload = msg.payload.decode("utf-8", errors="replace")
-
+        import json
+        import logging
+        from payload_parsers import parse_mqtt_payload, parse_summary_payload
+    
+        logger = logging.getLogger(__name__)
+        raw_payload = msg.payload.decode("utf-8", errors="replace") 
         try:
             data = json.loads(raw_payload)
         except json.JSONDecodeError:
             logger.warning(f"[MQTT] Invalid JSON on {msg.topic}: {raw_payload[:80]}")
             return
-
+    
+        # ── uat/replay ────────────────────────────────────────────────────────
+        if msg.topic == args.replay_topic:
+            label = str(data.get("label", "")).strip()
+            if label not in known_labels:
+                logger.warning(f"[MQTT] Replay: unknown label '{label}'")
+                return
+    
+            session_id = data.get("session_id")
+            seq        = data.get("seq")
+            total      = data.get("total")
+            ticks      = data.get("ticks", [])
+    
+            if session_id is None or seq is None or total is None:
+                logger.warning(f"[MQTT] Replay fragment missing fields — skipping")
+                return
+    
+            logger.info(f"[MQTT] Replay fragment {seq + 1}/{total} for "
+                        f"label={label} session={session_id} ({len(ticks)} ticks)")
+    
+            client_fb = firebase_clients.get(label)
+            if client_fb:
+                client_fb.ingest_replay_fragment(
+                    session_id=session_id,
+                    seq=seq,
+                    total=total,
+                    ticks=ticks,
+                )
+            return  # nothing to display on the dashboard for replay fragments
+    
+        # ── check for raw / summary ────────────────────────────
         label = str(data.get("label") or data.get("meta", {}).get("label", "")).strip()
         if label not in known_labels:
             logger.warning(f"[MQTT] Unknown label '{label}' in payload")
             return
-
+    
+        # ── uat/summary ───────────────────────────────────────────────────────
         if msg.topic == args.summary_topic:
             print(f"[MQTT] Summary received for label '{label}'")
-            # Validate before emitting — log a warning if malformed but still forward
             if parse_summary_payload(data) is None:
                 logger.warning(f"[MQTT] Malformed summary from label '{label}'")
-
+    
             signals.summary_received.emit(label, data)
-
+    
             client_fb = firebase_clients.get(label)
             if client_fb:
                 try:
@@ -130,13 +167,13 @@ def main():
                     logger.info(f"[Firebase] Summary uploaded for label {label}")
                 except Exception as e:
                     logger.warning(f"[Firebase] push_summary failed for label {label}: {e}")
-
+    
+        # ── uat/raw (regular analytics tick) ─────────────────────────────────
         else:
-            # Regular analytics tick
             client_fb = firebase_clients.get(label)
             if client_fb:
                 client_fb.push(data)
-
+    
             parsed = parse_mqtt_payload(data)
             if parsed is not None:
                 signals.parsed_received.emit(label, parsed)

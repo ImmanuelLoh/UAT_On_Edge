@@ -17,6 +17,7 @@ from sensors.face_sensor import FaceSensor
 from sensors.uat_monitor import UATMonitor, UATTask
 from sensors.web_tracker import WebTracker
 from sensors.mouse_tracker import MouseTracker
+from datetime import datetime, timezone, timedelta
 
 # MQTT transmission config
 RECEIVER_IP = sys.argv[1]
@@ -53,7 +54,7 @@ class SessionRecorder:
         count = sum(1 for s in snapshots if s["face"]["emotion"] == "FRUSTRATED")
         return count >= 20
     
-    def build_summary(self) -> dict:
+    def build_summary(self, session_id: str) -> dict:
         with self._lock:
             snapshots = list(self._snapshots)
 
@@ -141,6 +142,7 @@ class SessionRecorder:
                 "session_active": False,
                 "start_time": round(self._start_time, 2),
                 "end_time": round(end_time, 2),
+                "session_id": session_id,
                 "duration_seconds": duration,
                 "total_snapshots": len(snapshots),
             },
@@ -536,7 +538,8 @@ _mqtt_client_ref: "MQTTClient | None" = None
 _mqtt_client_ref_lock = threading.Lock()
 
 session_recorder = SessionRecorder(label=LABEL)
-
+SGT = timezone(timedelta(hours=8))
+session_id = datetime.now(SGT).strftime("%Y-%m-%d_%H-%M-%S")
 
 # MQTT Loop
 def mqtt_publish_loop():
@@ -570,7 +573,7 @@ def mqtt_publish_loop():
             session_recorder.record(snapshot)
 
             # print("[4] mqtt snapshot face:", snapshot["face"])
-            payload = mqtt_client.build_payload(label, snapshot)
+            payload = mqtt_client.build_payload(label, snapshot, session_id)
             mqtt_client.publish_tick(payload)
         except Exception as e:
             print("[MQTT Publish Error]", e)
@@ -579,36 +582,59 @@ def mqtt_publish_loop():
 
 
 def session_summary_loop():
-    """Polls app.py for the session-complete signal, then publishes the summary."""
+    """
+    Polls app.py for the session-complete signal.
+    On completion:
+      1. Builds and publishes the aggregated summary  (uat/summary, QoS 1)
+      2. Publishes the full snapshot timeline as replay fragments (uat/replay, QoS 1)
+    """
     print("[Summary Loop] Watching for session complete signal...")
-
+ 
     while True:
         try:
             resp = requests.get(
                 "http://127.0.0.1:5000/api/session_complete_status", timeout=1.0
             )
             data = resp.json()
-
+ 
             if data.get("complete"):
                 print("[Summary Loop] Session complete detected — building summary...")
-
-                summary = session_recorder.build_summary()
-                payload = json.dumps(summary)
-
+ 
+                summary = session_recorder.build_summary(session_id)
+                summary_payload = json.dumps(summary)
+ 
                 with _mqtt_client_ref_lock:
                     client = _mqtt_client_ref
-
-                if client is not None:
-                    client.publish_summary(payload)
-                    print("[Summary Loop] Summary sent. Exiting loop.")
-                else:
+ 
+                if client is None:
                     print("[Summary Loop] MQTT client not ready — summary not sent.")
+                    return
+ 
+                # ── Step 1: publish aggregated summary ──────────────────
+                client.publish_summary(summary_payload)
+                print("[Summary Loop] Summary sent.")
+ 
+                # ── Step 2: publish full snapshot replay ─────────────────
+                # session_recorder._snapshots is the complete in-memory list.
+                with session_recorder._lock:
+                    snapshots = list(session_recorder._snapshots)
 
+                if snapshots:
+                    fragments_sent = client.publish_replay(
+                        session_id=session_id,
+                        snapshots=snapshots,
+                        label=client.label,
+                    )
+                    print(f"[Summary Loop] Replay complete — {fragments_sent} fragments sent.")
+                else:
+                    print("[Summary Loop] No snapshots to replay.")
+ 
                 return  # One-shot: exit after publishing
-
+ 
         except Exception as e:
             print("[Summary Loop Error]", e)
-
+ 
+        import time
         time.sleep(3)
 
 
