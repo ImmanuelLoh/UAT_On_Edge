@@ -31,13 +31,15 @@ class MQTTClient:
         self.setup()
     
     def setup(self):
-        try:
-            self.client.connect(self.broker_ip, self.broker_port, 10)
-            self.client.loop_start()
-        except Exception as e:
-            print(f"Failed to connect to MQTT broker at {self.broker_ip}:{self.broker_port}")
-            print(f"Error: {e}")
-            raise
+        while True:
+            try:
+                print(f"[MQTTClient] Attempting to connect to {self.broker_ip}:{self.broker_port}")
+                self.client.connect(self.broker_ip, self.broker_port, 10)
+                self.client.loop_start()
+                break
+            except Exception as e:
+                print(f"[MQTTClient] Initial connection failed: {e}")
+                time.sleep(2)
     
     def publish_tick(self, payload, qos=0):
         if not self.connected:
