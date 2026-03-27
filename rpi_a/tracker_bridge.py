@@ -17,6 +17,7 @@ from sensors.face_sensor import FaceSensor
 from sensors.uat_monitor import UATMonitor, UATTask
 from sensors.web_tracker import WebTracker
 from sensors.mouse_tracker import MouseTracker
+from datetime import datetime, timezone, timedelta
 
 # MQTT transmission config
 RECEIVER_IP = sys.argv[1]
@@ -579,36 +580,67 @@ def mqtt_publish_loop():
 
 
 def session_summary_loop():
-    """Polls app.py for the session-complete signal, then publishes the summary."""
+    """
+    Polls app.py for the session-complete signal.
+    On completion:
+      1. Builds and publishes the aggregated summary  (uat/summary, QoS 1)
+      2. Publishes the full snapshot timeline as replay fragments (uat/replay, QoS 1)
+    """
     print("[Summary Loop] Watching for session complete signal...")
-
+ 
     while True:
         try:
             resp = requests.get(
                 "http://127.0.0.1:5000/api/session_complete_status", timeout=1.0
             )
             data = resp.json()
-
+ 
             if data.get("complete"):
                 print("[Summary Loop] Session complete detected — building summary...")
-
+ 
                 summary = session_recorder.build_summary()
-                payload = json.dumps(summary)
-
+                summary_payload = json.dumps(summary)
+ 
                 with _mqtt_client_ref_lock:
                     client = _mqtt_client_ref
-
-                if client is not None:
-                    client.publish_summary(payload)
-                    print("[Summary Loop] Summary sent. Exiting loop.")
-                else:
+ 
+                if client is None:
                     print("[Summary Loop] MQTT client not ready — summary not sent.")
+                    return
+ 
+                # ── Step 1: publish aggregated summary ──────────────────
+                client.publish_summary(summary_payload)
+                print("[Summary Loop] Summary sent.")
+ 
+                # ── Step 2: publish full snapshot replay ─────────────────
+                # session_recorder._snapshots is the complete in-memory list.
+                with session_recorder._lock:
+                    snapshots = list(session_recorder._snapshots)
+ 
+                session_id = summary.get("meta", {}).get("start_time")
 
+                # Use the same timestamp-based session_id format as FirebaseClient
+                # so RPI_B can correlate the replay to the right Firestore session.
+                SGT = timezone(timedelta(hours=8))
+                start_ts = summary.get("meta", {}).get("start_time", 0)
+                session_id = datetime.fromtimestamp(start_ts, tz=SGT).strftime("%Y-%m-%d_%H-%M-%S")
+ 
+                if snapshots:
+                    fragments_sent = client.publish_replay(
+                        session_id=session_id,
+                        snapshots=snapshots,
+                        label=client.label,
+                    )
+                    print(f"[Summary Loop] Replay complete — {fragments_sent} fragments sent.")
+                else:
+                    print("[Summary Loop] No snapshots to replay.")
+ 
                 return  # One-shot: exit after publishing
-
+ 
         except Exception as e:
             print("[Summary Loop Error]", e)
-
+ 
+        import time
         time.sleep(3)
 
 
