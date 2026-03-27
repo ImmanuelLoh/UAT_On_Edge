@@ -172,7 +172,7 @@ def reset_assistant_for_new_task():
         llm_state["llm_activated"] = False
         llm_state["last_role"] = None
         llm_state["last_message"] = ""
-        llm_state["timeout"] = False
+        llm_state["llm_timeout"] = False
 
 
 def reevaluate_assistant():
