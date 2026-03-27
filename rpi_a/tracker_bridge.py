@@ -46,6 +46,16 @@ class SessionRecorder:
         clean = [v for v in values if isinstance(v, (int, float))]
         return round(max(clean), 4) if clean else 0.0
 
+    def _get_frustration(self):
+        with self._lock:
+            snapshots = list(self._snapshots)[:120]
+
+        for s in snapshots:
+            if s["face"]["emotion"] == "FRUSTRATED":
+                count += 1
+
+        return True if count >= 72 else False
+    
     def build_summary(self) -> dict:
         with self._lock:
             snapshots = list(self._snapshots)
@@ -185,6 +195,10 @@ latest_state = {
         "llm_activated": False,
         "last_role": None,
         "last_message": "",
+        "llm_timeout": False
+    },
+    "alerts": {
+        "frustration": False
     }
 }
 
@@ -551,6 +565,8 @@ def mqtt_publish_loop():
                 snapshot["llm"]["last_role"] = None
             elif current_llm_message:
                 last_published_llm_message = current_llm_message
+
+            snapshot["alerts"]["frustration"] = session_recorder._get_frustration()
 
             # Record every snapshot for end-of-session summary
             session_recorder.record(snapshot)
