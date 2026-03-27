@@ -278,7 +278,24 @@ class InsightPanel(QWidget):
 
         self.col_b.addSpacing(12)
         self.col_b.addWidget(SectionHeader("Gaze"))
-        self.col_b.addWidget(DataRow("Quadrant",  str(parsed["gaze_quadrant"])))
+        self.col_b.addWidget(DataRow("Quadrant", str(parsed["gaze_quadrant"])))
+
+        # Inline frustration alert (right under gaze)
+        if parsed.get("frustration_alert"):
+            alert_lbl = QLabel("Frustration alert: User has been frustrated for a while!")
+            alert_lbl.setStyleSheet(f"""
+                color: {ACCENT_RED};
+                font-size: 12px;
+                font-weight: 600;
+                font-family: {FONT_SANS};
+                background: {LIGHT_BG};
+                border-left: 3px solid {ACCENT_RED};
+                border-radius: 4px;
+                padding: 6px 8px;
+            """)
+            alert_lbl.setWordWrap(True)
+            self.col_b.addWidget(alert_lbl)
+
         self.col_b.addStretch()
 
         # Column C — LLM Assistant
@@ -300,6 +317,21 @@ class InsightPanel(QWidget):
                 border-left: 3px solid {role_color}; border-radius: 4px; padding: 8px;
             """)
             self.col_c.addWidget(msg_lbl)
+
+        if parsed.get("llm_timeout"):
+            alert_lbl = QLabel("LLM has failed, please assist users!")
+            alert_lbl.setWordWrap(True)
+            alert_lbl.setStyleSheet(f"""
+                color: {ACCENT_RED};
+                font-size: 12px;
+                font-weight: 600;
+                font-family: {FONT_SANS};
+                background: {LIGHT_BG};
+                border-left: 3px solid {ACCENT_RED};
+                border-radius: 4px;
+                padding: 6px 8px;
+            """)
+            self.col_c.addWidget(alert_lbl)
 
         self.col_c.addStretch()
 

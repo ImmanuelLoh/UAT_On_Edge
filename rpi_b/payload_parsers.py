@@ -40,6 +40,8 @@ def parse_mqtt_payload(data: dict) -> dict | None:
             "llm_activated":     llm.get("llm_activated", False),
             "llm_last_role":     llm.get("last_role"),
             "llm_last_message":  llm.get("last_message", ""),
+            "llm_timeout":      llm.get("llm_timeout", False),
+            "frustration_alert":   data.get("alerts", {}).get("frustration", False),
         }
     except Exception as e:
         logger.warning(f"[Parser] Failed to parse tick payload: {e}")
