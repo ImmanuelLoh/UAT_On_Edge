@@ -418,11 +418,15 @@ class InsightPanel(QWidget):
         # Column C — LLM summary
         self.col_c.addWidget(SectionHeader("AI Assistant"))
 
-        activation_by_task = parsed.get("llm", {}).get("activation_by_task", {}) or {}
-        act_count = sum(1 for activated in activation_by_task.values() if activated)
-        act_color = ACCENT_GREEN if act_count > 0 else TEXT_MUTED
+        activation_by_task = parsed["llm_activations"]
+        act_color = ACCENT_GREEN if any(activation_by_task.values()) else TEXT_MUTED
 
-        self.col_c.addWidget(DataRow("Activations", str(act_count), act_color))
+        # Convert dict to readable string
+        formatted = ", ".join(
+            f"{task}: {str(status).lower()}" for task, status in activation_by_task.items()
+        ) or "None"
+
+        self.col_c.addWidget(DataRow("Activations", formatted, act_color))
 
         if activation_by_task:
             self.col_c.addSpacing(6)
