@@ -376,6 +376,7 @@ def llm_bridge_loop():
                 "llm_activated": data.get("llm_activated", False),
                 "last_role": data.get("last_role"),
                 "last_message": data.get("last_message", ""),
+                "llm_timeout": data.get("llm_timeout", False),
             }
 
             update_llm_state(llm_payload)
