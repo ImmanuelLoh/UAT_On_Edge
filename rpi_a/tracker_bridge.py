@@ -8,7 +8,7 @@ import copy
 import json
 import sys
 import statistics
-
+from pathlib import Path
 from transmission.MQTTClient import MQTTClient
 from transmission.VideoStreamClient import VideoStreamClient
 from transmission.ProcessSupervisor import ProcessSupervisor
@@ -613,12 +613,25 @@ def session_summary_loop():
                 # ── Step 1: publish aggregated summary ──────────────────
                 client.publish_summary(summary_payload)
                 print("[Summary Loop] Summary sent.")
- 
-                # ── Step 2: publish full snapshot replay ─────────────────
-                # session_recorder._snapshots is the complete in-memory list.
+            
+                # ── Save locally ──────────────────────────────────
                 with session_recorder._lock:
                     snapshots = list(session_recorder._snapshots)
-
+                try:
+                    log_dir = Path("session_logs")
+                    log_dir.mkdir(parents=True, exist_ok=True)
+                    log_path = log_dir / f"session_{LABEL}_{session_id}.jsonl"
+                    with open(log_path, "w") as f:
+                        for snap in snapshots:
+                            f.write(json.dumps(snap) + "\n")
+                        f.write(summary_payload + "\n")
+                    print(f"[Summary Loop] Local log saved: {log_path} ({len(snapshots)} ticks)")
+                except Exception as e:
+                    print(f"[Summary Loop] Local log failed: {e}")
+                # ──────────────────────────────────────────────────────────
+                
+                # ── Step 2: publish full snapshot replay ─────────────────
+                # session_recorder._snapshots is the complete in-memory list.
                 if snapshots:
                     fragments_sent = client.publish_replay(
                         session_id=session_id,
