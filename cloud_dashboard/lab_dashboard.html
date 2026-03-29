@@ -87,6 +87,67 @@
   .history-card { padding: 14px; }
   .history-card + .history-card { margin-top: 12px; }
   .history-top { display: flex; justify-content: space-between; gap: 8px; align-items: start; }
+  .history-lab-dropdown {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--card-2);
+    overflow: hidden;
+  }
+  .history-lab-dropdown + .history-lab-dropdown { margin-top: 14px; }
+  .history-lab-summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    user-select: none;
+  }
+  .history-lab-summary::-webkit-details-marker { display: none; }
+  .history-lab-summary:hover { background: #f2f6ff; }
+  .history-lab-main { display: flex; flex-direction: column; gap: 4px; }
+  .history-lab-meta { color: var(--muted); font-size: 13px; }
+  .history-lab-arrow {
+    color: var(--muted);
+    font-size: 14px;
+    transition: transform 0.2s ease;
+  }
+  .history-lab-dropdown[open] .history-lab-arrow { transform: rotate(180deg); }
+  .history-lab-content {
+    padding: 0 18px 18px;
+    border-top: 1px solid var(--border);
+    background: var(--card);
+  }
+  .computer-history-dropdown {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 10px;
+  }
+  .computer-history-summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    user-select: none;
+    background: var(--card-2);
+  }
+  .computer-history-summary::-webkit-details-marker { display: none; }
+  .computer-history-summary:hover { background: #eef4ff; }
+  .computer-history-summary-inner { display: flex; align-items: center; gap: 10px; }
+  .computer-history-dropdown[open] .history-lab-arrow { transform: rotate(180deg); }
+  .computer-history-sessions {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--card);
+  }
+  .computer-history-sessions .history-card { margin: 0; }
   .history-title { font-weight: 700; }
   .history-meta { color: var(--muted); font-size: 13px; margin-top: 4px; }
   .history-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
@@ -110,10 +171,9 @@
   .chart-title { font-weight: 700; margin-bottom: 12px; }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; color: var(--muted); font-size: 12px; margin-top: 8px; }
   .legend span::before { content: ''; display: inline-block; width: 12px; height: 3px; margin-right: 6px; vertical-align: middle; border-radius: 999px; }
-  .legend .fr::before { background: #d64545; }
-  .legend .at::before { background: #356dff; }
-  .legend .wc::before { background: #b7791f; }
-  .legend .gz::before { background: #7c3aed; }
+  .fr::before { background: #d64545; }
+  .at::before { background: #356dff; }
+  .wc::before { background: #b7791f; }
   .detail-layout { display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; margin-top: 16px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { padding: 10px 8px; border-bottom: 1px solid var(--border); text-align: left; }
@@ -185,13 +245,25 @@
     <div class="chart-box">
       <div class="chart-title">Timeline Overview</div>
       <svg id="timeline-chart" width="100%" aria-label="timeline chart"></svg>
-      <div class="legend">
-        <span class="fr">Frustration</span>
-        <span class="at">Attention</span>
-        <span class="wc">Wrong clicks</span>
-        <span class="gz">Gaze quadrant</span>
-        <span style="display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="#d6454533" stroke="#d64545" stroke-width="1.5"/></svg> Frustration peak</span>
-        <span style="display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12"><polygon points="6,1 11,11 1,11" fill="#356dff33" stroke="#356dff" stroke-width="1.5"/></svg> LLM activated</span>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
+        <!-- Row 1: chart lines + event markers, centred -->
+        <div class="legend" style="display:flex;justify-content:center;align-items:center;gap:16px;flex-wrap:nowrap;color:var(--muted);font-size:12px;">
+          <span class="fr">Frustration</span>
+          <span class="at">Attention</span>
+          <span class="wc">Wrong clicks</span>
+          <span style="display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="#d6454533" stroke="#d64545" stroke-width="1.5"/></svg> Frustration peak</span>
+          <span style="display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12"><polygon points="6,1 11,11 1,11" fill="#356dff33" stroke="#356dff" stroke-width="1.5"/></svg> LLM activated</span>
+        </div>
+        <!-- Row 2: gaze quadrant colours, centred -->
+        <div style="display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:nowrap;color:var(--muted);font-size:11px;">
+          <span style="font-weight:600;">Gaze:</span>
+          <span style="display:inline-flex;align-items:center;gap:3px;"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#3b82f6;"></span>Top-Left</span>
+          <span style="display:inline-flex;align-items:center;gap:3px;"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#8b5cf6;"></span>Top-Right</span>
+          <span style="display:inline-flex;align-items:center;gap:3px;"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#06b6d4;"></span>Bottom-Left</span>
+          <span style="display:inline-flex;align-items:center;gap:3px;"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#10b981;"></span>Bottom-Right</span>
+          <span style="display:inline-flex;align-items:center;gap:3px;"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#f59e0b;"></span>Center</span>
+          <span style="display:inline-flex;align-items:center;gap:3px;"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e2e8f0;border:1px solid #cfd8ea;"></span>Uncalibrated</span>
+        </div>
       </div>
     </div>
 
@@ -208,7 +280,7 @@
         </div>
       </div>
       <div class="chart-box">
-        <div class="chart-title">Derived Events</div>
+        <div class="chart-title">Events</div>
         <div class="event-list" id="event-list"></div>
       </div>
     </div>
@@ -304,36 +376,55 @@ function renderHistory(labs) {
     container.innerHTML = '<div class="empty">No completed session history found yet.</div>';
     return;
   }
-  console.log(labs);
-  container.innerHTML = labs.map(({ labId, computers }) => `
-    <div class="lab-block">
-      <div class="lab-head">
-        <div class="lab-title">${labId}</div>
-        <div class="muted">${computers.length} computers with completed sessions</div>
-      </div>
-      ${computers.map(({ computerId, sessions }) => `
-        <div style="margin-bottom:14px;">
-          <div class="muted" style="margin-bottom:8px; font-weight:600;">${computerId}</div>
-          ${sessions.map((session) => `
-            <div class="history-card">
-              <div class="history-top">
-                <div>
-                  <div class="history-title">${session.sessionId}</div>
-                  <div class="history-meta">Ended ${fmtTime(session.ended_at)} · Duration ${fmtDuration(session.meta.duration_seconds)}</div>
+
+  container.innerHTML = labs.map(({ labId, computers }, index) => {
+    const totalSessions = computers.reduce((sum, c) => sum + ((c.sessions || []).length), 0);
+    return `
+      <details class="history-lab-dropdown lab-block" ${index === 0 ? 'open' : ''}>
+        <summary class="history-lab-summary">
+          <div class="history-lab-main">
+            <div class="lab-title">${labId}</div>
+            <div class="history-lab-meta">${totalSessions} completed sessions across ${computers.length} computer${computers.length === 1 ? '' : 's'}</div>
+          </div>
+          <div class="pill-row">
+            <span class="pill inactive">${totalSessions} completed</span>
+            <span class="history-lab-arrow">▼</span>
+          </div>
+        </summary>
+        <div class="history-lab-content">
+          ${computers.map(({ computerId, sessions }, ci) => `
+            <details class="computer-history-dropdown" ${ci === 0 ? 'open' : ''}>
+              <summary class="computer-history-summary">
+                <div class="computer-history-summary-inner">
+                  <span style="font-weight:700;">${computerId}</span>
+                  <span class="history-lab-meta">${sessions.length} session${sessions.length === 1 ? '' : 's'}</span>
                 </div>
-                <span class="badge inactive">Completed</span>
+                <span class="history-lab-arrow">▼</span>
+              </summary>
+              <div class="computer-history-sessions">
+                ${sessions.map((session) => `
+                  <div class="history-card">
+                    <div class="history-top">
+                      <div>
+                        <div class="history-title">${session.sessionId}</div>
+                        <div class="history-meta">Ended ${fmtTime(session.ended_at)} · Duration ${fmtDuration(session.meta.duration_seconds)}</div>
+                      </div>
+                      <span class="badge inactive">Completed</span>
+                    </div>
+                    <div class="history-grid">
+                      <div class="mini-stat"><div class="mini-label">Wrong clicks</div><div class="mini-value">${fmt(session.aggregates.browser.total_wrong_clicks, 0)}</div></div>
+                      <div class="mini-stat"><div class="mini-label">Avg frustration</div><div class="mini-value">${fmtNum(session.aggregates.face.avg_frustration_score)}${session.aggregates.face.avg_frustration_score != null ? '%' : ''}</div></div>
+                      <div class="mini-stat"><div class="mini-label">Avg attention</div><div class="mini-value">${fmtNum(session.aggregates.face.avg_attention_score)}${session.aggregates.face.avg_attention_score != null ? '%' : ''}</div></div>
+                    </div>
+                    <div class="history-actions">
+                      <button class="btn btn-primary" data-lab="${labId}" data-computer="${computerId}" data-session="${session.sessionId}">View session</button>
+                    </div>
+                  </div>`).join('')}
               </div>
-              <div class="history-grid">
-                <div class="mini-stat"><div class="mini-label">Wrong clicks</div><div class="mini-value">${fmt(session.aggregates.browser.total_wrong_clicks, 0)}</div></div>
-                <div class="mini-stat"><div class="mini-label">Avg frustration</div><div class="mini-value">${fmtNum(session.aggregates.face.avg_frustration_score)}${session.aggregates.face.avg_frustration_score != null ? '%' : ''}</div></div>
-                <div class="mini-stat"><div class="mini-label">Avg attention</div><div class="mini-value">${fmtNum(session.aggregates.face.avg_attention_score)}${session.aggregates.face.avg_attention_score != null ? '%' : ''}</div></div>
-              </div>
-              <div class="history-actions">
-                <button class="btn btn-primary" data-lab="${labId}" data-computer="${computerId}" data-session="${session.sessionId}">View session</button>
-              </div>
-            </div>`).join('')}
-        </div>`).join('')}
-    </div>`).join('<div class="section-divider"></div>');
+            </details>`).join('')}
+        </div>
+      </details>`;
+  }).join('');
 
   container.querySelectorAll('button[data-session]').forEach((btn) => {
     btn.addEventListener('click', () => openSession(btn.dataset.lab, btn.dataset.computer, btn.dataset.session));
@@ -373,12 +464,40 @@ function buildPathByTime(points, innerWidth, innerHeight, tMin, tMax, yAccessor,
   }).join(' ');
 }
 
+function normaliseGaze(rawGaze, fallback = 'UNCALIBRATED') {
+  if (rawGaze === null || rawGaze === undefined || rawGaze === '') return fallback;
+  const key = String(rawGaze).trim().replace(/[_\s]+/g, '-').toUpperCase();
+  const map = {
+    'TOP-LEFT':     'TOP-LEFT',
+    'TOP-RIGHT':    'TOP-RIGHT',
+    'BOTTOM-LEFT':  'BOTTOM-LEFT',
+    'BOTTOM-RIGHT': 'BOTTOM-RIGHT',
+    'CENTER':       'CENTER',
+    'CENTRE':       'CENTER',
+    'MIDDLE':       'CENTER',
+    'UNKNOWN':      fallback,
+    'NONE':         fallback,
+    'NO-FACE':      fallback,
+    'UNCALIBRATED': fallback,
+  };
+  return map[key] ?? fallback;
+}
+
+function getFaceGaze(point) {
+  const face = point?.face || {};
+  return normaliseGaze(
+    face.gaze_quadrant ?? face.gazeQuadrant ?? face.gaze_state ?? face.gazeState ?? face.direction,
+    'UNCALIBRATED'
+  );
+}
+
 function renderTimelineChart(timeline, events = []) {
   const svg = document.getElementById('timeline-chart');
   const tooltip = document.getElementById('chart-tooltip');
 
-  const BAND_H = 20;   // height of each task band strip
-  const padding = { top: 20, right: 20, bottom: 36, left: 44 };
+  const BAND_H = 20;          // height of each task band strip
+  const GAZE_STRIP_H = 14;    // height of gaze colour strip
+  const padding = { top: 20, right: 20, bottom: 16, left: 44 };
   const chartH  = 200; // line-chart area height
   const width   = 960;
 
@@ -391,7 +510,8 @@ function renderTimelineChart(timeline, events = []) {
   const numTasks = taskOrder.length;
   const bandsH = numTasks * BAND_H;  // total height of task-band area
 
-  const totalH = padding.top + chartH + bandsH + padding.bottom;
+  // total SVG height: chart + x-axis labels (24px) + task bands + gaze strip + bottom padding
+  const totalH = padding.top + chartH + 24 + bandsH + GAZE_STRIP_H + padding.bottom;
   svg.setAttribute('viewBox', `0 0 ${width} ${totalH}`);
   svg.setAttribute('height', totalH);
 
@@ -471,32 +591,6 @@ function renderTimelineChart(timeline, events = []) {
         <path d="${wcPath}" fill="none" stroke="#b7791f" stroke-width="2" stroke-dasharray="6 4" />
       </g>
 
-      <!-- Gaze quadrant strip (thin coloured bar above x-axis) -->
-      ${(() => {
-        const GAZE_COLOURS = {
-          'Top-Left':     '#7c3aed44',
-          'Top-Right':    '#0891b244',
-          'Bottom-Left':  '#be185d44',
-          'Bottom-Right': '#65a30d44',
-          'CENTER':       '#b7791f44',
-          'UNCALIBRATED': '#cfd8ea55',
-        };
-        const STRIP_Y = innerHeight - 8;
-        const STRIP_H = 6;
-        let gazeSegs = [];
-        let cur = null;
-        timeline.forEach((p, i) => {
-          const g = p.face?.gaze_quadrant || 'UNCALIBRATED';
-          if (g !== cur?.gaze) {
-            if (cur) cur.x2 = toX(p.timestamp);
-            cur = { gaze: g, x1: toX(p.timestamp), x2: innerWidth };
-            gazeSegs.push(cur);
-          }
-          if (i === timeline.length - 1 && cur) cur.x2 = innerWidth;
-        });
-        return gazeSegs.map(s => `<rect x="${s.x1.toFixed(1)}" y="${STRIP_Y}" width="${Math.max(0, s.x2 - s.x1).toFixed(1)}" height="${STRIP_H}" fill="${GAZE_COLOURS[s.gaze] || '#cfd8ea55'}" />`).join('');
-      })()}
-
       <!-- Hover dots -->
       ${points.map(p => {
         const x = toX(p.timestamp);
@@ -510,7 +604,7 @@ function renderTimelineChart(timeline, events = []) {
             frustration: p.face?.frustration_score,
             wrong: p.browser?.wrong_click,
             llm: p.llm?.llm_activated,
-            gaze: p.face?.gaze_quadrant,
+            gaze: getFaceGaze(p),
           }).replace(/'/g, '&apos;')}' />`;
       }).join('')}
 
@@ -552,6 +646,40 @@ function renderTimelineChart(timeline, events = []) {
         return `<text x="-6" y="${(bandY + 24 + BAND_H / 2 + 4).toFixed(1)}" fill="#667085" font-size="9" text-anchor="end" font-weight="600">${task.length > 12 ? task.slice(0, 11) + '…' : task}</text>`;
       }).join('')}
 
+      <!-- Task-change vertical divider lines -->
+      ${segments.slice(0, -1).map(s => {
+        const x = s.x2.toFixed(1);
+        return `<line x1="${x}" y1="0" x2="${x}" y2="${(innerHeight + numTasks * BAND_H + 24 + GAZE_STRIP_H + 4).toFixed(1)}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 3" opacity="0.6"/>`;
+      }).join('')}
+
+      <!-- Gaze quadrant strip (below all task bands) -->
+      ${(() => {
+        const GAZE_COLOURS = {
+          'TOP-LEFT':     '#3b82f6',
+          'TOP-RIGHT':    '#8b5cf6',
+          'BOTTOM-LEFT':  '#06b6d4',
+          'BOTTOM-RIGHT': '#10b981',
+          'CENTER':       '#f59e0b',
+          'UNCALIBRATED': '#e2e8f0',
+        };
+        const STRIP_Y = innerHeight + 24 + numTasks * BAND_H + 4;
+        let gazeSegs = [];
+        let cur = null;
+        timeline.forEach((p, i) => {
+          const g = getFaceGaze(p);
+          if (g !== cur?.gaze) {
+            if (cur) cur.x2 = toX(p.timestamp);
+            cur = { gaze: g, x1: i === 0 ? 0 : toX(p.timestamp), x2: innerWidth };
+            gazeSegs.push(cur);
+          }
+          if (i === timeline.length - 1 && cur) cur.x2 = innerWidth;
+        });
+        return `
+          <text x="-6" y="${(STRIP_Y + GAZE_STRIP_H / 2 + 4).toFixed(1)}" fill="#667085" font-size="9" text-anchor="end" font-weight="600">Gaze</text>
+          ${gazeSegs.map(s => `<rect x="${s.x1.toFixed(1)}" y="${STRIP_Y.toFixed(1)}" width="${Math.max(0, s.x2 - s.x1).toFixed(1)}" height="${GAZE_STRIP_H}" fill="${GAZE_COLOURS[s.gaze] || '#e2e8f0'}" />`).join('')}
+        `;
+      })()}
+
     </g>`;
 
   svg.querySelectorAll('.chart-point').forEach((point) => {
@@ -581,6 +709,35 @@ function renderTimelineChart(timeline, events = []) {
       tooltip.style.display = 'none';
     });
   });
+}
+
+function extractLlmConversation(timeline = []) {
+  const conversation = [];
+  let lastSeenRole = null;
+  let lastSeenMessage = null;
+
+  for (const point of timeline) {
+    const llm = point?.llm || {};
+    const message = typeof llm.last_message === 'string' ? llm.last_message.trim() : '';
+    const role = llm.last_role || null;
+
+    if (!message || !role) continue;
+
+    // Avoid repeated identical snapshots from appearing as duplicate chat lines
+    if (message === lastSeenMessage && role === lastSeenRole) continue;
+
+    conversation.push({
+      timestamp: point.timestamp,
+      role,
+      message,
+      task: point?.browser?.task || 'Unknown'
+    });
+
+    lastSeenMessage = message;
+    lastSeenRole = role;
+  }
+
+  return conversation;
 }
 
 async function openSession(labId, computerId, sessionId) {
@@ -633,16 +790,57 @@ async function openSession(labId, computerId, sessionId) {
         </tr>`).join('')
     : '<tr><td colspan="6">No task data found.</td></tr>';
 
-  // Derived events panel
+  // Events + LLM conversation panel
   const events = payload.events || [];
-  document.getElementById('event-list').innerHTML = events.length
-    ? events.map((e) => {
-        const icon = e.type === 'frustration' ? '🔴' : '🔵';
-        const d = new Date(e.timestamp * 1000);
-        const timeLabel = d.toLocaleTimeString('en-SG', { hour12: false });
-        return `<div class="event-item">${icon} <strong>${e.label}</strong><div class="muted" style="margin-top:4px;">${timeLabel} · ${e.task}</div></div>`;
-      }).join('')
-    : '<div class="empty">No derived events found.</div>';
+  const conversation = extractLlmConversation(payload.timeline || []);
+
+  const eventHtml = events.map((e) => {
+    const icon = e.type === 'frustration' ? '🔴' : '🔵';
+    const d = new Date(e.timestamp * 1000);
+    const timeLabel = d.toLocaleTimeString('en-SG', { hour12: false });
+    return `
+      <div class="event-item">
+        ${icon} <strong>${e.label}</strong>
+        <div class="muted" style="margin-top:4px;">${timeLabel} · ${e.task}</div>
+      </div>`;
+  }).join('');
+
+  const conversationHtml = conversation.map((msg) => {
+    const d = new Date(msg.timestamp * 1000);
+    const timeLabel = d.toLocaleTimeString('en-SG', { hour12: false });
+
+    const isAssistant = String(msg.role).toLowerCase() === 'assistant';
+    const roleLabel = isAssistant ? 'Assistant' : 'User';
+    const roleColor = isAssistant ? 'var(--accent)' : 'var(--text)';
+
+    return `
+      <div class="event-item" style="border-left: 4px solid ${isAssistant ? 'var(--accent)' : '#94a3b8'};">
+        <div style="display:flex; justify-content:space-between; gap:8px; align-items:flex-start;">
+          <strong style="color:${roleColor};">${roleLabel}</strong>
+          <span class="muted" style="font-size:12px;">${timeLabel}</span>
+        </div>
+        <div style="margin-top:6px; white-space:pre-wrap; line-height:1.45;">${msg.message}</div>
+        <div class="muted" style="margin-top:6px; font-size:12px;">Task: ${msg.task}</div>
+      </div>`;
+  }).join('');
+
+  let combinedHtml = '';
+
+  if (events.length) {
+    combinedHtml += `
+      <div style="font-weight:700; margin-bottom:8px;">Session Events</div>
+      ${eventHtml}
+    `;
+  }
+
+  if (conversation.length) {
+    combinedHtml += `
+      <div style="font-weight:700; margin:${events.length ? '16px' : '0'} 0 8px;">LLM Conversation</div>
+      ${conversationHtml}
+    `;
+  }
+
+  document.getElementById('event-list').innerHTML = combinedHtml || '<div class="empty">No events or LLM messages found.</div>';
 }
 
 async function loadDashboard() {
@@ -687,7 +885,7 @@ document.getElementById('session-modal').addEventListener('click', (event) => {
 });
 
 loadDashboard();
-setInterval(loadDashboard, 30000);
+// setInterval(loadDashboard, 30000);
 </script>
 </body>
 </html>

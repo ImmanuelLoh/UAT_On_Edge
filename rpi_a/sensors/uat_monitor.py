@@ -56,7 +56,7 @@ class UATTask:
             return
 
         # Validate Element ID 
-        if element_id in self.target_ids:
+        if element_id in self.target_ids or element_id == self.success_id:
             self.correct_clicks.append(clicked_element)
             self.correct_count += 1
         else:
@@ -134,13 +134,22 @@ class UATMonitor:
                 "endTime": task.end_time,
                 "totalDuration": task.total_duration,
             }
+
+        # prev_task_index = self.active_task_index - 1 
+        # prev_correct_count = 0
+        # prev_wrong_count = 0
+        # if prev_task_index > 0:
+        #     prev_task = self.tasks[prev_task_index]
+        #     prev_correct_count = prev_task.correct_count
+        #     prev_wrong_count = prev_task.wrong_count
+        #     prev_task.reset_count()
         
         metrics["currentTask"] = {
             "taskName": current_task.task_name,
             "correct_click": current_task.correct_count,
             "wrong_click": current_task.wrong_count,
         }
-
+        
         return metrics
 
     def get_current_window_stats(self):

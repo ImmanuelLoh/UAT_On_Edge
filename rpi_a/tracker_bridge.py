@@ -8,7 +8,7 @@ import copy
 import json
 import sys
 import statistics
-
+from pathlib import Path
 from transmission.MQTTClient import MQTTClient
 from transmission.VideoStreamClient import VideoStreamClient
 from transmission.ProcessSupervisor import ProcessSupervisor
@@ -17,6 +17,7 @@ from sensors.face_sensor import FaceSensor
 from sensors.uat_monitor import UATMonitor, UATTask
 from sensors.web_tracker import WebTracker
 from sensors.mouse_tracker import MouseTracker
+from datetime import datetime, timezone, timedelta
 
 # MQTT transmission config
 RECEIVER_IP = sys.argv[1]
@@ -45,8 +46,15 @@ class SessionRecorder:
     def _safe_max(self, values):
         clean = [v for v in values if isinstance(v, (int, float))]
         return round(max(clean), 4) if clean else 0.0
+    
+    def _get_frustration(self):
+        with self._lock:
+            snapshots = list(self._snapshots)[-60:]
 
-    def build_summary(self) -> dict:
+        count = sum(1 for s in snapshots if s["face"]["emotion"] == "FRUSTRATED")
+        return count >= 20
+    
+    def build_summary(self, session_id: str) -> dict:
         with self._lock:
             snapshots = list(self._snapshots)
 
@@ -90,12 +98,28 @@ class SessionRecorder:
             ms = m.get("mouse_status", "unknown")
             mouse_agg["mouse_status_counts"][ms] = mouse_agg["mouse_status_counts"].get(ms, 0) + 1
 
-        # Browser aggregates
-        total_wrong = max((b.get("wrong_click", 0) for b in browser_snaps), default=0)
-        total_correct = max((b.get("correct_click", 0) for b in browser_snaps), default=0)
+        # Browser aggregates (Sum of Max per Task)
+        task_maxima = {} # Stores { "task_name": {"correct": X, "wrong": Y} }
+
+        for b in browser_snaps:
+            task_name = b.get("task", "unknown")
+            
+            # Initialize task entry if not seen yet
+            if task_name not in task_maxima:
+                task_maxima[task_name] = {"correct": 0, "wrong": 0}
+            
+            # Update with the highest value seen for this specific task
+            task_maxima[task_name]["correct"] = max(task_maxima[task_name]["correct"], b.get("correct_click", 0))
+            task_maxima[task_name]["wrong"] = max(task_maxima[task_name]["wrong"], b.get("wrong_click", 0))
+
+        # Sum the peaks from every task
+        total_correct = sum(data["correct"] for data in task_maxima.values())
+        total_wrong = sum(data["wrong"] for data in task_maxima.values())
+
         browser_agg = {
             "total_wrong_clicks": total_wrong,
             "total_correct_clicks": total_correct,
+            "task_breakdown": task_maxima 
         }
 
         # LLM aggregates
@@ -118,6 +142,7 @@ class SessionRecorder:
                 "session_active": False,
                 "start_time": round(self._start_time, 2),
                 "end_time": round(end_time, 2),
+                "session_id": session_id,
                 "duration_seconds": duration,
                 "total_snapshots": len(snapshots),
             },
@@ -169,6 +194,10 @@ latest_state = {
         "llm_activated": False,
         "last_role": None,
         "last_message": "",
+        "llm_timeout": False
+    },
+    "alerts": {
+        "frustration": False
     }
 }
 
@@ -346,6 +375,7 @@ def llm_bridge_loop():
                 "llm_activated": data.get("llm_activated", False),
                 "last_role": data.get("last_role"),
                 "last_message": data.get("last_message", ""),
+                "llm_timeout": data.get("llm_timeout", False),
             }
 
             update_llm_state(llm_payload)
@@ -508,7 +538,8 @@ _mqtt_client_ref: "MQTTClient | None" = None
 _mqtt_client_ref_lock = threading.Lock()
 
 session_recorder = SessionRecorder(label=LABEL)
-
+SGT = timezone(timedelta(hours=8))
+session_id = datetime.now(SGT).strftime("%Y-%m-%d_%H-%M-%S")
 
 # MQTT Loop
 def mqtt_publish_loop():
@@ -536,11 +567,13 @@ def mqtt_publish_loop():
             elif current_llm_message:
                 last_published_llm_message = current_llm_message
 
+            snapshot["alerts"]["frustration"] = session_recorder._get_frustration()
+
             # Record every snapshot for end-of-session summary
             session_recorder.record(snapshot)
 
             # print("[4] mqtt snapshot face:", snapshot["face"])
-            payload = mqtt_client.build_payload(label, snapshot)
+            payload = mqtt_client.build_payload(label, snapshot, session_id)
             mqtt_client.publish_tick(payload)
         except Exception as e:
             print("[MQTT Publish Error]", e)
@@ -549,36 +582,71 @@ def mqtt_publish_loop():
 
 
 def session_summary_loop():
-    """Polls app.py for the session-complete signal, then publishes the summary."""
+    """
+    Polls app.py for the session-complete signal.
+    On completion:
+      1. Builds and publishes the aggregated summary  (uat/summary, QoS 1)
+      2. Publishes the full snapshot timeline as replay fragments (uat/replay, QoS 1)
+    """
     print("[Summary Loop] Watching for session complete signal...")
-
+ 
     while True:
         try:
             resp = requests.get(
                 "http://127.0.0.1:5000/api/session_complete_status", timeout=1.0
             )
             data = resp.json()
-
+ 
             if data.get("complete"):
                 print("[Summary Loop] Session complete detected — building summary...")
-
-                summary = session_recorder.build_summary()
-                payload = json.dumps(summary)
-
+ 
+                summary = session_recorder.build_summary(session_id)
+                summary_payload = json.dumps(summary)
+ 
                 with _mqtt_client_ref_lock:
                     client = _mqtt_client_ref
-
-                if client is not None:
-                    client.publish_summary(payload)
-                    print("[Summary Loop] Summary sent. Exiting loop.")
-                else:
+ 
+                if client is None:
                     print("[Summary Loop] MQTT client not ready — summary not sent.")
-
+                    return
+ 
+                # ── Step 1: publish aggregated summary ──────────────────
+                client.publish_summary(summary_payload)
+            
+                # ── Save locally ──────────────────────────────────
+                with session_recorder._lock:
+                    snapshots = list(session_recorder._snapshots)
+                try:
+                    log_dir = Path("session_logs")
+                    log_dir.mkdir(parents=True, exist_ok=True)
+                    log_path = log_dir / f"session_{LABEL}_{session_id}.jsonl"
+                    with open(log_path, "w") as f:
+                        for snap in snapshots:
+                            f.write(json.dumps(snap) + "\n")
+                        f.write(summary_payload + "\n")
+                    print(f"[Summary Loop] Local log saved: {log_path} ({len(snapshots)} ticks)")
+                except Exception as e:
+                    print(f"[Summary Loop] Local log failed: {e}")
+                # ──────────────────────────────────────────────────────────
+                
+                # ── Step 2: publish full snapshot replay ─────────────────
+                # session_recorder._snapshots is the complete in-memory list.
+                if snapshots:
+                    fragments_sent = client.publish_replay(
+                        session_id=session_id,
+                        snapshots=snapshots,
+                        label=client.label,
+                    )
+                    print(f"[Summary Loop] Replay complete — {fragments_sent} fragments sent.")
+                else:
+                    print("[Summary Loop] No snapshots to replay.")
+ 
                 return  # One-shot: exit after publishing
-
+ 
         except Exception as e:
             print("[Summary Loop Error]", e)
-
+ 
+        import time
         time.sleep(3)
 
 

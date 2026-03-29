@@ -39,13 +39,15 @@ llm_state = {
     "llm_activated": False,
     "last_role": None,
     "last_message": "",
+    "llm_timeout": False
 }
 
-def record_llm_event(role: str, message: str):
+def record_llm_event(role: str, message: str, timeout: bool = False):
     with llm_state_lock:
         llm_state["llm_activated"] = True
         llm_state["last_role"] = role
         llm_state["last_message"] = message
+        llm_state["llm_timeout"] = timeout
 # =======  END: LLM State for MQTT =============
 
 # ============= Session Complete Signal =============
@@ -152,9 +154,6 @@ def build_fallback_hint(summary: dict) -> str:
     if task == "Number Selections":
         return "The current selection seems incorrect. Select exactly 3 numbers: 1, 3, and 7, then submit."
 
-    if task == "Start Session":
-        return "Try clicking the Start button to begin the session."
-
     return "It looks like you may be stuck. Try the current task again carefully."
 
 
@@ -173,6 +172,7 @@ def reset_assistant_for_new_task():
         llm_state["llm_activated"] = False
         llm_state["last_role"] = None
         llm_state["last_message"] = ""
+        llm_state["llm_timeout"] = False
 
 
 def reevaluate_assistant():
@@ -223,7 +223,9 @@ def reevaluate_assistant():
             "assistant_message", ""
         ).strip() or build_fallback_hint(summary)
 
-        record_llm_event("assistant", reply_text) # For MQTT dashboard
+        timeout_flag = llm_reply.get("llm_timeout", False)  
+
+        record_llm_event("assistant", reply_text, timeout=timeout_flag) # For MQTT dashboard
 
         latest_ui_state["assistant_open"] = True
         latest_ui_state["proactive_message"] = reply_text
@@ -310,8 +312,10 @@ def browser_event():
         reply_text = llm_reply.get(
             "assistant_message", ""
         ).strip() or build_fallback_hint(summary)
+        
+        timeout_flag = llm_reply.get("llm_timeout", False)  
 
-        record_llm_event("assistant", reply_text)  # For MQTT dashboard
+        record_llm_event("assistant", reply_text, timeout=timeout_flag)  # For MQTT dashboard
 
         latest_ui_state["assistant_open"] = True
         latest_ui_state["nudge"] = False
@@ -365,7 +369,8 @@ def ui_state():
 @app.route("/api/chat_reply", methods=["POST"])
 def chat_reply():
     user_msg = request.get_json().get("message", "")
-    record_llm_event("user", user_msg) # For MQTT dashboard
+    
+    record_llm_event("user", user_msg, timeout=False) # For MQTT dashboard
     summary = context_buffer.summarize()
     summary["user_message"] = user_msg
 
@@ -381,7 +386,10 @@ def chat_reply():
 
     llm_reply = request_assistance(summary, mode="chat")
     reply_text = llm_reply.get("assistant_message", "No response.")
-    record_llm_event("assistant", reply_text) # For MQTT dashboard
+    
+    timeout_flag = llm_reply.get("llm_timeout", False)  
+    
+    record_llm_event("assistant", reply_text, timeout=timeout_flag) # For MQTT dashboard
 
     latest_ui_state["assistant_open"] = True
     latest_ui_state["chat_message"] = reply_text

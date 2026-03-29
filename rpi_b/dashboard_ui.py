@@ -274,11 +274,28 @@ class InsightPanel(QWidget):
         self.col_b.addWidget(DataRow("Emotion",     str(parsed["emotion"]),           emotion_color(parsed["emotion"])))
         self.col_b.addWidget(DataRow("Frustration", str(parsed["frustration_score"]), score_color(parsed["frustration_score"])))
         self.col_b.addWidget(DataRow("Attention",   str(parsed["attention_score"])))
+        self.col_b.addWidget(DataRow("Direction", str(parsed["direction"])))
 
         self.col_b.addSpacing(12)
         self.col_b.addWidget(SectionHeader("Gaze"))
-        self.col_b.addWidget(DataRow("Direction", str(parsed["direction"])))
-        self.col_b.addWidget(DataRow("Quadrant",  str(parsed["gaze_quadrant"])))
+        self.col_b.addWidget(DataRow("Quadrant", str(parsed["gaze_quadrant"])))
+
+        # Inline frustration alert (right under gaze)
+        if parsed.get("frustration_alert"):
+            alert_lbl = QLabel("Frustration alert: User has been frustrated for a while!")
+            alert_lbl.setStyleSheet(f"""
+                color: {ACCENT_RED};
+                font-size: 12px;
+                font-weight: 600;
+                font-family: {FONT_SANS};
+                background: {LIGHT_BG};
+                border-left: 3px solid {ACCENT_RED};
+                border-radius: 4px;
+                padding: 6px 8px;
+            """)
+            alert_lbl.setWordWrap(True)
+            self.col_b.addWidget(alert_lbl)
+
         self.col_b.addStretch()
 
         # Column C — LLM Assistant
@@ -300,6 +317,21 @@ class InsightPanel(QWidget):
                 border-left: 3px solid {role_color}; border-radius: 4px; padding: 8px;
             """)
             self.col_c.addWidget(msg_lbl)
+
+        if parsed.get("llm_timeout"):
+            alert_lbl = QLabel("LLM has failed, please assist users!")
+            alert_lbl.setWordWrap(True)
+            alert_lbl.setStyleSheet(f"""
+                color: {ACCENT_RED};
+                font-size: 12px;
+                font-weight: 600;
+                font-family: {FONT_SANS};
+                background: {LIGHT_BG};
+                border-left: 3px solid {ACCENT_RED};
+                border-radius: 4px;
+                padding: 6px 8px;
+            """)
+            self.col_c.addWidget(alert_lbl)
 
         self.col_c.addStretch()
 
@@ -366,8 +398,8 @@ class InsightPanel(QWidget):
         self.col_a.addWidget(SectionHeader("Mouse"))
         self.col_a.addWidget(DataRow("Avg Idle (s)",  str(parsed["avg_idle_time"])))
         self.col_a.addWidget(DataRow("Peak Idle (s)", str(parsed["peak_idle_time"])))
-        self.col_a.addWidget(DataRow("Avg CPS",       str(parsed["avg_cps"])))
-        self.col_a.addWidget(DataRow("Top Quadrant",  str(parsed["dominant_quadrant"])))
+        # self.col_a.addWidget(DataRow("Avg CPS",       str(parsed["avg_cps"])))
+        # self.col_a.addWidget(DataRow("Top Quadrant",  str(parsed["dominant_quadrant"])))
         self.col_a.addStretch()
 
         # Column B — Biometrics + gaze
@@ -385,32 +417,24 @@ class InsightPanel(QWidget):
 
         # Column C — LLM summary
         self.col_c.addWidget(SectionHeader("AI Assistant"))
-        act_count = parsed["llm_activations"]
-        act_color = ACCENT_GREEN if act_count > 0 else TEXT_MUTED
-        self.col_c.addWidget(DataRow("Activations", str(act_count), act_color))
 
-        messages = parsed["assistant_messages"]
-        if messages:
+        activation_by_task = parsed["llm_activations"]
+        act_color = ACCENT_GREEN if any(activation_by_task.values()) else TEXT_MUTED
+
+        # Convert dict to readable string
+        formatted = ", ".join(
+            f"{task}: {str(status).lower()}" for task, status in activation_by_task.items()
+        ) or "None"
+
+        self.col_c.addWidget(DataRow("Activations", formatted, act_color))
+
+        if activation_by_task:
             self.col_c.addSpacing(6)
-            self.col_c.addWidget(SectionHeader(f"Messages ({len(messages)})"))
-            for msg in messages:
-                msg_lbl = QLabel(f"• {msg}")
-                msg_lbl.setWordWrap(True)
-                msg_lbl.setStyleSheet(f"""
-                    color: {TEXT_PRIMARY};
-                    font-size: 12px;
-                    font-family: {FONT_SANS};
-                    background: {LIGHT_BG};
-                    border-left: 3px solid {ACCENT_BLUE};
-                    border-radius: 4px;
-                    padding: 6px 8px;
-                    margin-bottom: 4px;
-                """)
-                self.col_c.addWidget(msg_lbl)
-        else:
-            no_msg = QLabel("No assistant messages this session.")
-            no_msg.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 12px; font-family: {FONT_SANS};")
-            self.col_c.addWidget(no_msg)
+            self.col_c.addWidget(SectionHeader("Activated Tasks"))
+            for task_name, activated in activation_by_task.items():
+                status_text = "Activated" if activated else "Not activated"
+                status_color = ACCENT_GREEN if activated else TEXT_MUTED
+                self.col_c.addWidget(DataRow(task_name, status_text, status_color))
 
         self.col_c.addStretch()
 

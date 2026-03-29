@@ -40,6 +40,8 @@ def parse_mqtt_payload(data: dict) -> dict | None:
             "llm_activated":     llm.get("llm_activated", False),
             "llm_last_role":     llm.get("last_role"),
             "llm_last_message":  llm.get("last_message", ""),
+            "llm_timeout":      llm.get("llm_timeout", False),
+            "frustration_alert":   data.get("alerts", {}).get("frustration", False),
         }
     except Exception as e:
         logger.warning(f"[Parser] Failed to parse tick payload: {e}")
@@ -77,6 +79,7 @@ def parse_summary_payload(data: dict) -> dict | None:
             "session_active":  meta.get("session_active", False),
             "duration":        f"{mins}m {secs:02d}s",
             "total_snapshots": meta.get("total_snapshots", "—"),
+            "session_id":     meta.get("session_id", "—"),
             # Face
             "avg_frustration":  face.get("avg_frustration_score", "—"),
             "peak_frustration": face.get("peak_frustration_score", "—"),
@@ -93,8 +96,7 @@ def parse_summary_payload(data: dict) -> dict | None:
             "total_wrong_clicks":   brow.get("total_wrong_clicks", "—"),
             "total_correct_clicks": brow.get("total_correct_clicks", "—"),
             # LLM
-            "llm_activations":    llm.get("total_activations", 0),
-            "assistant_messages": llm.get("assistant_messages", []),
+            "llm_activations":    llm.get("activation_by_task", {})
         }
     except Exception as e:
         logger.warning(f"[SummaryParser] Failed to parse summary payload: {e}")
