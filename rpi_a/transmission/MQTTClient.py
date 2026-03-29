@@ -61,9 +61,14 @@ class MQTTClient:
             print(f"Published message to {self.raw_topic}: {payload}")
 
     def publish_summary(self, summary_payload, qos=1):
-        """Publish end-of-session summary to uat/summary and mark session inactive."""
+        # Mark session inactive — no more raw publishes after summary
+        self.session_active = False
+        print("[MQTTClient] Session marked inactive.")
+
         if not self.connected:
-            print("[MQTTClient] Cannot publish summary — not connected.")
+            print("[MQTTClient] Cannot publish summary, waiting for reconnect.")
+            if not self._wait_for_connection(timeout=30):
+                print("[MQTTClient] Reconnect failed. Summary not published.")
             return
 
         result = self.client.publish(
@@ -76,9 +81,6 @@ class MQTTClient:
         else:
             print(f"[MQTTClient] Session summary published to {self.summary_topic}")
 
-        # Mark session inactive — no more raw publishes after summary
-        self.session_active = False
-        print("[MQTTClient] Session marked inactive.")
 
 
     def publish_replay(self, session_id: str, snapshots: list,
@@ -100,7 +102,9 @@ class MQTTClient:
         Returns the total number of fragments sent.
         """
         if not self.connected:
-            print("[MQTTClient] Cannot publish replay — not connected.")
+            print("[MQTTClient] Cannot publish replay, waiting for reconnect.")
+            if not self._wait_for_connection(timeout=30):
+                print("[MQTTClient] Reconnect failed. Replay not published.")
             return 0
 
         chunks = [
@@ -192,3 +196,12 @@ class MQTTClient:
 
     def on_disconnect(self, client, userdata, rc):
         self.connected = False
+    
+    def _wait_for_connection(self, timeout=30) -> bool:
+        """Wait up to N seconds for paho to reconnect. Returns True if connected."""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if self.connected:
+                return True
+            time.sleep(1)
+        return False

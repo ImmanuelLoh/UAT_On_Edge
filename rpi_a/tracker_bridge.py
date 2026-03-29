@@ -612,7 +612,6 @@ def session_summary_loop():
  
                 # ── Step 1: publish aggregated summary ──────────────────
                 client.publish_summary(summary_payload)
-                print("[Summary Loop] Summary sent.")
             
                 # ── Save locally ──────────────────────────────────
                 with session_recorder._lock:
