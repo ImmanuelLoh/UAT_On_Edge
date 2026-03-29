@@ -50,6 +50,8 @@ _HEIGHT           = 480
 _WARMUP_SECS      = 2.0
 _FACE_CALIB_SECS  = 10.0   # passive face/brow baseline collection
 _GAZE_COLLECT_SECS = 5.0   # per-point gaze collection in EyeAnalytics
+_TARGET_FPS        = 30
+_FRAME_BUDGET      = 1.0 / _TARGET_FPS   # 33.33ms — cap inference rate to match camera
 
 _FONT = cv2.FONT_HERSHEY_SIMPLEX
 
@@ -233,6 +235,8 @@ class FaceSensor:
         Returns None if no frame or no face detected.
         Call after calibrate().
         """
+        t_frame_start = time.perf_counter()
+
         ret, frame = self._stream.read()
         if not ret:
             return None
@@ -251,6 +255,9 @@ class FaceSensor:
         self._last_frame_time = now
 
         if not results.multi_face_landmarks:
+            remaining = _FRAME_BUDGET - (time.perf_counter() - t_frame_start)
+            if remaining > 0:
+                time.sleep(remaining)
             return {"face_detected": False}
 
         lm = results.multi_face_landmarks[0].landmark
@@ -274,6 +281,12 @@ class FaceSensor:
             cv2.putText(frame, f"Attn: {face_result['attention_score']}", (10, 109), _FONT, 0.6, (255, 255, 0), 2)
             # cv2.imshow("UAT", frame)
         
+        # FPS cap: sleep for remainder of frame budget
+        elapsed = time.perf_counter() - t_frame_start
+        remaining = _FRAME_BUDGET - elapsed
+        if remaining > 0:
+            time.sleep(remaining)
+
         return {
             "face_detected": True,
             "gaze_quadrant": gaze_quadrant,
