@@ -53,11 +53,11 @@ An edge-based User Acceptance Testing (UAT) assistant that monitors participants
 
 ### Component responsibilities
 
-| Node | Handles |
-|------|---------|
-| **RPi A** | UAT web UI, all sensor capture, trigger scoring, context buffering, LLM request/response, MQTT publishing |
-| **Laptop** | LLM inference (Ollama/Llama 3.2), prompt construction, response generation |
-| **RPi B** | Real-time supervisor dashboard, Firebase upload, session archival & replay |
+| Node       | Handles                                                                                                   |
+| ---------- | --------------------------------------------------------------------------------------------------------- |
+| **RPi A**  | UAT web UI, all sensor capture, trigger scoring, context buffering, LLM request/response, MQTT publishing |
+| **Laptop** | LLM inference (Ollama/Llama 3.2), prompt construction, response generation                                |
+| **RPi B**  | Real-time supervisor dashboard, Firebase upload, session archival & replay                                |
 
 ---
 
@@ -70,13 +70,13 @@ UAT_On_Edge/
 ├── rpi_a/
 │   ├── app.py                  # Flask entry point, route handlers
 │   ├── config.py               # Thresholds, LLM URL, cooldown timings
-│   ├── trigger_engine.py       # Composite frustration score (10+ signals)
+│   ├── trigger_engine.py       # Composite frustration score (10+ signals), decides when to call
 │   ├── context_buffer.py       # 5-second sliding event window
 │   ├── llm_client.py           # HTTP client → Laptop LLM, 5 s fallback
 │   ├── tracker_bridge.py       # Sensor orchestrator, MQTT publisher, session recorder
 │   │
 │   ├── sensors/
-│   │   ├── main.py             # Face sensor process entry point
+│   │   ├── main.py             # Testing code for face sensors
 │   │   ├── face_sensor.py      # Unified face pipeline (baseline → gaze calibration → analytics)
 │   │   ├── mouse_tracker.py    # Idle time, click rate, quadrant tracking
 │   │   ├── web_tracker.py      # Selenium JS listener for form events
@@ -111,6 +111,7 @@ UAT_On_Edge/
 │
 ├── laptop_llm/
 │   ├── llm_server.py           # Flask API :5001, builds prompt, calls Ollama
+│   ├── start_ollama_lan.ps1    # Powershell script to start Ollama
 │   └── launcher.py             # Starts Ollama + llm_server via PowerShell
 │
 └── cloud_dashboard/
@@ -125,6 +126,7 @@ UAT_On_Edge/
 ### 1. Install Python 3.11.9 on Raspberry Pi OS 13 (Trixie)
 
 **Build dependencies:**
+
 ```bash
 sudo apt update
 sudo apt install -y \
@@ -134,6 +136,7 @@ sudo apt install -y \
 ```
 
 **Compile Python:**
+
 ```bash
 cd ~
 wget https://www.python.org/ftp/python/3.11.9/Python-3.11.9.tgz
@@ -144,6 +147,7 @@ sudo make altinstall
 ```
 
 **Verify tkinter:**
+
 ```bash
 /usr/local/python3.11/bin/python3.11 -c "import tkinter; print('Tk OK')"
 ```
@@ -153,11 +157,13 @@ sudo make altinstall
 #### RPi A
 
 **Chromium + chromedriver** — required by the Selenium web tracker (`web_tracker.py` hardcodes `/usr/bin/chromium` and `/usr/bin/chromedriver`):
+
 ```bash
 sudo apt install -y chromium chromium-driver
 ```
 
 **GStreamer** — required for screen capture and RTP/UDP video streaming to RPi B. The pipeline uses `ximagesrc → x264enc → rtph264pay → udpsink`:
+
 ```bash
 sudo apt install -y \
   gstreamer1.0-tools \
@@ -169,6 +175,7 @@ sudo apt install -y \
 ```
 
 Verify:
+
 ```bash
 gst-launch-1.0 --version
 ```
@@ -189,32 +196,38 @@ export DISPLAY=:99
 > Note: `export DISPLAY=:0` (or `:99` for Xvfb) must be set in the shell that launches `app.py` so that both GStreamer and Chromium can find the display.
 
 **VNC grey screen fix** — when the RPi boots without a monitor plugged in, the HDMI output is often marked `disconnected` by xrandr. VNC connects to the X session but finds no active framebuffer, rendering a grey screen. `ximagesrc` and Chromium both fail silently in this state. Fix it with:
+
 ```bash
 xrandr --query                      # check which output is available (e.g. HDMI-1)
 xrandr --output HDMI-1 --auto       # force it on at preferred resolution
 ```
 
 If the display still doesn't come up, restart the display manager:
+
 ```bash
 sudo systemctl restart lightdm
 ```
 
 **v4l2-utils** — `CameraStream.py` calls `v4l2-ctl` directly to configure `/dev/video0` (exposure, gain, brightness):
+
 ```bash
 sudo apt install -y v4l2-utils
 ```
 
 **OpenCV headless fix** — `opencv-python` requires `libGL.so.1` at import time. On a desktop session this is already present; on a headless/SSH session install:
+
 ```bash
 sudo apt install -y libgl1
 ```
 
 **PortAudio** — required by `sounddevice` (listed in `requirements.txt`):
+
 ```bash
 sudo apt install -y libportaudio2
 ```
 
 **Camera and input group access** — the face sensor opens `/dev/video0` and `evdev` reads `/dev/input/event*`. Add your user to both groups, then log out and back in:
+
 ```bash
 sudo usermod -aG video,input $USER
 ```
@@ -222,11 +235,13 @@ sudo usermod -aG video,input $USER
 #### RPi B
 
 **PySide6** — the Qt dashboard (`dashboard_ui.py`, `mqtt_dashboard.py`) uses PySide6, which is not in `requirements.txt`:
+
 ```bash
 pip install PySide6
 ```
 
 **firebase-admin** — also not in `requirements.txt`, required by `firebase_client.py`:
+
 ```bash
 pip install firebase-admin
 ```
@@ -236,12 +251,14 @@ Place your Firebase service account key at `rpi_b/serviceAccountKey.json` (Fireb
 #### MQTT broker (any machine on the network)
 
 All nodes communicate via MQTT. If you don't have a broker already, install Mosquitto on one machine (e.g. RPi B):
+
 ```bash
 sudo apt install -y mosquitto mosquitto-clients
 sudo systemctl enable --now mosquitto
 ```
 
 Verify it's reachable from RPi A:
+
 ```bash
 mosquitto_sub -h <BROKER_IP> -t test
 ```
@@ -255,11 +272,93 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
----
+### 4. Cloud Server
+
+**1. Prerequisites**:
+Make sure the laptop has:
+
+```
+Python 3 installed
+pip installed
+Ollama installed
+The project source code cloned onto the laptop
+The laptop and Raspberry Pi connected to the same network
+```
+
+**2. Install Ollama**
+
+Install Ollama on the laptop.
+
+After installation, verify it is available:
+
+```
+ollama --version
+```
+
+**3. Pull the Llama 3.2 3B model**
+
+Download the model with:
+
+```
+ollama pull llama3.2:3b
+```
+
+This only needs to be done once.
+
+You can verify the model is available with:
+
+```
+ollama list
+```
+
+**4. Set up a Python virtual environment**
+
+From the project folder, create and activate a virtual environment.
+
+```
+python -m venv venv
+venv\Scripts\activate
+```
+
+**5. Install Python dependencies**
+
+Install the required Python packages:
+
+```
+pip install flask requests
+```
+
+**6. Get Laptop IP**
+
+Find your laptop’s local IP:
+
+```
+ipconfig
+
+```
+
+**7. Update Raspberry Pi Config**
+
+Set the LLM endpoint to your laptop:
+
+```
+LLM_SERVER_URL = "http://<LAPTOP_IP>:5001/assist"
+```
+
+**8. Run Everything**
+
+Use the combined launcher:
+
+```
+python launcher.py
+```
+
+## This script starts both Ollama and Flask together
 
 ## Running
 
 ### RPi A — Testing machine
+
 ```bash
 cd rpi_a
 python app.py          # Flask UI at http://0.0.0.0:5000
@@ -267,17 +366,20 @@ python app.py          # Flask UI at http://0.0.0.0:5000
 ```
 
 ### Laptop — LLM server
+
 ```bash
 cd laptop_llm
 python launcher.py     # Starts Ollama + Flask API at :5001
 ```
 
 Or manually (requires Ollama already running on `localhost:11434`):
+
 ```bash
 python llm_server.py
 ```
 
 ### RPi B — Supervisor dashboard
+
 ```bash
 cd rpi_b
 python mqtt_dashboard.py \
@@ -292,13 +394,13 @@ python mqtt_dashboard.py \
 
 Key tunables are in `rpi_a/config.py`:
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `LLM_URL` | `http://<laptop>:5001/assist` | LLM server endpoint |
-| `TRIGGER_THRESHOLD` | `0.7` | Score above which an LLM hint is sent |
-| `NUDGE_THRESHOLD` | `0.5` | Score for a lighter nudge |
-| `COOLDOWN_SECONDS` | `20` | Minimum gap between hints |
-| `CONTEXT_WINDOW_SECONDS` | `5` | Sliding window for event aggregation |
+| Setting                  | Default                       | Description                           |
+| ------------------------ | ----------------------------- | ------------------------------------- |
+| `LLM_URL`                | `http://<laptop>:5001/assist` | LLM server endpoint                   |
+| `TRIGGER_THRESHOLD`      | `0.7`                         | Score above which an LLM hint is sent |
+| `NUDGE_THRESHOLD`        | `0.5`                         | Score for a lighter nudge             |
+| `COOLDOWN_SECONDS`       | `20`                          | Minimum gap between hints             |
+| `CONTEXT_WINDOW_SECONDS` | `5`                           | Sliding window for event aggregation  |
 
 Firebase credentials go in `rpi_b/serviceAccountKey.json` (excluded from version control via `.gitignore`).
 
@@ -306,8 +408,8 @@ Firebase credentials go in `rpi_b/serviceAccountKey.json` (excluded from version
 
 ## MQTT Topics
 
-| Topic | Publisher | Content |
-|-------|-----------|---------|
-| `uat/raw` | RPi A | Per-tick sensor snapshot (~1 s cadence) |
-| `uat/summary` | RPi A | End-of-session summary |
-| `uat/replay` | RPi A | Chunked replay fragments |
+| Topic         | Publisher | Content                                 |
+| ------------- | --------- | --------------------------------------- |
+| `uat/raw`     | RPi A     | Per-tick sensor snapshot (~1 s cadence) |
+| `uat/summary` | RPi A     | End-of-session summary                  |
+| `uat/replay`  | RPi A     | Chunked replay fragments                |
