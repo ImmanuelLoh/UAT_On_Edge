@@ -69,7 +69,7 @@ class MQTTClient:
             print("[MQTTClient] Cannot publish summary, waiting for reconnect.")
             if not self._wait_for_connection(timeout=30):
                 print("[MQTTClient] Reconnect failed. Summary not published.")
-            return
+                return
 
         result = self.client.publish(
             topic=self.summary_topic,
